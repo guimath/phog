@@ -9,6 +9,7 @@ export component AppWindow inherits Window {
     callback next();
     callback edit();
     callback delete();
+    callback close();
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
         key-pressed(event) => {
@@ -23,6 +24,9 @@ export component AppWindow inherits Window {
             }
             else if (event.text == "e") {
                 root.edit();
+            }
+            else if (event.text == Key.Escape) {
+                root.close();
             }
             accept
         }
