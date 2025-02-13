@@ -251,7 +251,7 @@ impl AppLogic {
         let mut file1 = self.current_folder.clone();
         file1.push(self.name_buffer[self.get_buffer_idx(self.buffer_num)].clone());
         let mut file2 = file1.clone();
-        file2.set_extension("RAW");
+        file2.set_extension("RAF");
     
         let mut dest1 = folder_move.clone();
         dest1.push(file1.file_name().unwrap());
