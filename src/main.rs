@@ -70,10 +70,8 @@ impl AppLogic {
         let buffer_idx: Vec<usize> = (0..buffer_size).collect();
         let mut edit_folder = folder_path.clone();
         edit_folder.push("edit");
-        let _ = fs::create_dir_all(edit_folder.clone());
         let mut delete_folder = folder_path.clone();
         delete_folder.push("bin");
-        let _ = fs::create_dir_all(delete_folder.clone());
 
         // println!("{:?}",pic_list);
         Self{
@@ -161,10 +159,9 @@ impl AppLogic {
     }
 
     fn edit(&self) {
+        let _ = fs::create_dir_all(self.edit_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.edit_folder.clone());
-
         fs::copy(file1, &dest1).unwrap();
-
         if fs::copy(file2, &dest2).is_err() {
             println!("No RAW file, only jpg was copied to edit")
         }
@@ -174,6 +171,7 @@ impl AppLogic {
     }
 
     fn delete(&mut self) -> bool{
+        let _ = fs::create_dir_all(self.delete_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.delete_folder.clone());
         fs::rename(file1, &dest1).unwrap();
         if fs::rename(file2, &dest2).is_err() {
@@ -268,8 +266,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
     // TODO PARAM
-    let folder_path = PathBuf::from_str("/home/guilhem/Pictures/TEST").unwrap();
-    // let folder_path = PathBuf::from_str("/home/guilhem/Documents/SAVE/Photos/2024_20 - Palawan").unwrap();
+    // let folder_path = PathBuf::from_str("/home/guilhem/Pictures/TEST").unwrap();
+    let folder_path = PathBuf::from_str("/home/guilhem/Documents/SAVE/Photos/2024_20 - Palawan").unwrap();
     // let mut logic = AppLogic::new(folder_path);
     let logic = Rc::new(RefCell::new(AppLogic::new(folder_path))); // Wrap in Rc<RefCell<>>
     ui.set_photo_path(logic.borrow().get_img());
