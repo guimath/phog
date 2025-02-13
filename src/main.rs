@@ -40,10 +40,6 @@ struct AppLogic {
     current_folder:PathBuf
 }
 
-fn substract(a:usize, b:usize)-> usize{
-    (((a as i32) - (b as i32) + BUFFER_SIZE as i32 )as usize)% BUFFER_SIZE
-}
-
 impl AppLogic {
     
     fn new(folder_path:PathBuf) -> Self {
