@@ -1,18 +1,28 @@
 import { Button, VerticalBox, HorizontalBox} from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    in-out property <int> counter: 0;
-    in-out property <image> photo_path;
-    callback request-increase-value();
-    callback request-decrease-value();
+    in property <int> photo_num: 0;
+    in property <int> total_num: 0;
+    in property <string> photo_name: "N/A";
+    in property <image> photo_path;
+    callback prev();
+    callback next();
+    callback edit();
+    callback delete();
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
         key-pressed(event) => {
             if (event.text == Key.LeftArrow) {
-                root.request-decrease-value();
+                root.prev();
             }
-            if (event.text == Key.RightArrow) {
-                root.request-increase-value();
+            else if (event.text == Key.RightArrow) {
+                root.next();
+            }
+            else if (event.text == "d") {
+                root.delete();
+            }
+            else if (event.text == "e") {
+                root.edit();
             }
             accept
         }
@@ -23,34 +33,36 @@ export component AppWindow inherits Window {
             visible: true;
         }
         Text {
-            text: "Counter: \{root.counter}";
+            text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
+            font-size: 25pt;
+            height: 25pt;
         }
 
-        HorizontalBox {
-            Button {
-                text: "Delete";
-                clicked => {
-                    root.request-increase-value();
-                }
-            }
-            Button {
-                text: "To edit";
-                clicked => {
-                    root.request-increase-value();
-                }
-            }
-            Button {
-                text: "Prev";
-                clicked => {
-                    root.request-decrease-value();
-                }
-            }
-            Button {
-                text: "Next";
-                clicked => {
-                    root.request-increase-value();
-                }
-            }
-        }
+        // HorizontalBox {
+        //     Button {
+        //         text: "Delete";
+        //         clicked => {
+        //             root.delete();
+        //         }
+        //     }
+        //     Button {
+        //         text: "To edit";
+        //         clicked => {
+        //             root.edit();
+        //         }
+        //     }
+        //     Button {
+        //         text: "Prev";
+        //         clicked => {
+        //             root.prev();
+        //         }
+        //     }
+        //     Button {
+        //         text: "Next";
+        //         clicked => {
+        //             root.next();
+        //         }
+        //     }
+        // }
     }
 }
