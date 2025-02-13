@@ -13,8 +13,13 @@ use slint::Image;
 
 slint::include_modules!();
 // const DELETE_FOLDER: String = "~/Pictures/deleted".to_string();
+
+/// total number of images loaded in buffer
 const BUFFER_SIZE :usize = 6;
-const BUFFER_OFFSET:usize = BUFFER_SIZE/2;
+
+/// Minimum number of elements to carry on either side of the buffer
+const MIN_ELEM_NUM:usize = (BUFFER_SIZE-2)/2;
+
 struct AppLogic {
     pic_list: Vec<PathBuf>,
     counter: usize,
@@ -75,18 +80,18 @@ impl AppLogic {
         }
         self.buffer_num =(self.buffer_num+1)%BUFFER_SIZE;
         self.counter += 1;
-        if self.front_file > BUFFER_OFFSET {
+        if self.front_file > MIN_ELEM_NUM {
             self.front_file -= 1;
             self.back_file +=1;
         }
         else {
-            if self.counter+BUFFER_OFFSET >= self.pic_list.len() {
+            if self.counter+MIN_ELEM_NUM >= self.pic_list.len() {
                 self.front_file -= 1;
                 self.back_file +=1;
             }
             else {
-                self.pic_buffer[(self.buffer_num+BUFFER_OFFSET)%BUFFER_SIZE] = Image::load_from_path(self.pic_list[self.counter+BUFFER_OFFSET].as_path()).expect("image read failed");
-                self.dbg[(self.buffer_num+BUFFER_OFFSET)%BUFFER_SIZE] = self.pic_list[self.counter+BUFFER_OFFSET].file_stem().unwrap().to_str().unwrap().to_string()
+                self.pic_buffer[(self.buffer_num+MIN_ELEM_NUM)%BUFFER_SIZE] = Image::load_from_path(self.pic_list[self.counter+MIN_ELEM_NUM].as_path()).expect("image read failed");
+                self.dbg[(self.buffer_num+MIN_ELEM_NUM)%BUFFER_SIZE] = self.pic_list[self.counter+MIN_ELEM_NUM].file_stem().unwrap().to_str().unwrap().to_string()
                 
             }
         }
@@ -101,7 +106,7 @@ impl AppLogic {
 
         self.buffer_num =(self.buffer_num+BUFFER_SIZE-1)%BUFFER_SIZE;
         self.counter -= 1;
-        if self.back_file > BUFFER_OFFSET {
+        if self.back_file > MIN_ELEM_NUM {
             self.back_file -= 1;
             self.front_file +=1;
         }
