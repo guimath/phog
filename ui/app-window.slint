@@ -1,0 +1,56 @@
+import { Button, VerticalBox, HorizontalBox} from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property <int> counter: 0;
+    in-out property <image> photo_path;
+    callback request-increase-value();
+    callback request-decrease-value();
+    forward-focus: my-key-handler;
+    my-key-handler := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.LeftArrow) {
+                root.request-decrease-value();
+            }
+            if (event.text == Key.RightArrow) {
+                root.request-increase-value();
+            }
+            accept
+        }
+    }
+    VerticalBox {
+        Image {
+            source: root.photo_path;
+            visible: true;
+        }
+        Text {
+            text: "Counter: \{root.counter}";
+        }
+
+        HorizontalBox {
+            Button {
+                text: "Delete";
+                clicked => {
+                    root.request-increase-value();
+                }
+            }
+            Button {
+                text: "To edit";
+                clicked => {
+                    root.request-increase-value();
+                }
+            }
+            Button {
+                text: "Prev";
+                clicked => {
+                    root.request-decrease-value();
+                }
+            }
+            Button {
+                text: "Next";
+                clicked => {
+                    root.request-increase-value();
+                }
+            }
+        }
+    }
+}
