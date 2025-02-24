@@ -6,25 +6,56 @@ const MIN_ELEM_NUM:usize = (BUFFER_SIZE-2)/2;
 
 use std::{cmp::min, path::PathBuf};
 use std::fs;
+use std::time::Instant;
 use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
 use turbojpeg::image::Rgb;
 use exif::Tag;
 // use image::{ImageReader, Rgb8Pixel};
 // use image::SharedPixelBuffer;
 use turbojpeg::{Transform, TransformOp};
+
+
+const BASE_WIDTH:u32 = 6000;
+const BASE_HEIGHT:u32 = 4000;
+
 #[derive(Debug, Clone)]
 struct ImageElement{
     raw_img : SharedPixelBuffer<Rgb8Pixel>,
+    raw_img_portrait : SharedPixelBuffer<Rgb8Pixel>,
     file_name : String,
+    in_portrait : bool,
+}
+
+impl Default for ImageElement {
+    fn default() -> Self {
+        Self{
+            raw_img: SharedPixelBuffer::new(1,1),
+            raw_img_portrait: SharedPixelBuffer::new(1,1),
+            file_name: String::default(),
+            in_portrait: false,
+        }
+    }
 }
 impl ImageElement {
-    pub fn read(&self) -> Image{
-        let o = slint::Image::from_rgb8(self.raw_img.clone());
-        o
+    #[allow(unused)]
+    fn preloaded() -> Self{
+        Self{
+            raw_img: SharedPixelBuffer::new(BASE_WIDTH,BASE_HEIGHT),
+            raw_img_portrait: SharedPixelBuffer::new(BASE_HEIGHT,BASE_WIDTH),
+            file_name: String::default(),
+            in_portrait: false,
+        }
     }
+    pub fn read(&self) -> Image{
+        if self.in_portrait {
+            slint::Image::from_rgb8(self.raw_img_portrait.clone())
+        } else {
+            slint::Image::from_rgb8(self.raw_img.clone())
+        }
+    }
+
     pub fn load(&mut self, elem:PathBuf){
         self.file_name = elem.file_name().unwrap().to_str().unwrap().to_string();
-        
         // reading EXIF to get orient (<10ms)
         let file = fs::File::open(elem.clone()).unwrap();
         let mut bufreader = std::io::BufReader::new(&file);
@@ -52,12 +83,19 @@ impl ImageElement {
         };
         
         // SharedPixelBuffer creation can take a while on large files (1s)
-        // TODO add separate sharedbuf for portraits
-        if self.raw_img.width() != decoded.width() || self.raw_img.height() != decoded.height() { 
+        self.in_portrait = decoded.width()< decoded.height();
+
+        let image = if self.in_portrait {
+            &mut self.raw_img_portrait
+        } else {
+            &mut self.raw_img
+        };
+
+        if image.width() != decoded.width() || image.height() != decoded.height() { 
             // only recreating if not same size
-            self.raw_img = SharedPixelBuffer::new(decoded.width(), decoded.height());
+            *image = SharedPixelBuffer::new(decoded.width(), decoded.height());
         }
-        let img_data=  self.raw_img.make_mut_bytes();
+        let img_data=  image.make_mut_bytes();
         unsafe {
             std::ptr::copy_nonoverlapping(decoded.as_ptr(), img_data.as_mut_ptr(), decoded.len());
         }        
@@ -88,17 +126,9 @@ impl CircularBuffer {
         
         let true_size= min(BUFFER_SIZE, pic_list.len());
         let indices: Vec<usize> = (0..true_size).collect();
-        let buffer: [ImageElement; BUFFER_SIZE] = (0..BUFFER_SIZE).map(|_|
-            ImageElement{
-                raw_img:SharedPixelBuffer::new(1,1),
-                file_name: String::default(),
-            }
-        )
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-        
-        // println!("{:?}",pic_list);
+        let a = Instant::now();
+        let buffer: [ImageElement; BUFFER_SIZE] = [(); BUFFER_SIZE].map(|_| ImageElement::default());
+        println!("Space allocated ({:?})", Instant::now()-a);
         Self{
             counter: 0,
             pic_list,
@@ -115,6 +145,7 @@ impl CircularBuffer {
         for i in 0..self.true_size {
             self.buffer[i].load(self.pic_list[i].clone());
         }
+
     }
 
     fn get_buffer_idx(&self, num:usize)-> usize{
