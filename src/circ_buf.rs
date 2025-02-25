@@ -63,9 +63,9 @@ impl ImageElement {
         // println!("LOAD -> {}", self.file_name.clone());
         // reading EXIF to get orient (<10ms)
         let file = fs::File::open(elem.clone()).unwrap();
-        let mut bufreader = std::io::BufReader::new(&file);
-        let exifreader = exif::Reader::new();
-        let exif_res = exifreader.read_from_container(&mut bufreader);
+        let mut buffer_reader = std::io::BufReader::new(&file);
+        let exif_reader = exif::Reader::new();
+        let exif_res = exif_reader.read_from_container(&mut buffer_reader);
         let mut rotate = None;
         if let Ok(exif) = exif_res {
             if let Some(orientation) = exif.get_field(Tag::Orientation, exif::In::PRIMARY) {
@@ -114,7 +114,7 @@ impl ImageElement {
 pub struct CircularBuffer {
     counter: usize,
     pic_list: Vec<PathBuf>,
-    /// Actual bufferized elements
+    /// Actual buffered elements
     buffer: [Arc<Mutex<ImageElement>>; BUFFER_SIZE],
     /// true size of buffer (might be smaller than BUFFER_SIZE if total amount of elements are smaller)
     true_size: usize,
