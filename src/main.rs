@@ -18,8 +18,8 @@ slint::include_modules!();
 /// 5) all the code to be placed in async block (isolated by brackets)
 macro_rules! async_context {
     ($ui:ident, $ui_clone:ident, $logic_arc:ident, $logic_locked:ident, $code:block) => {{
-        let ui_handle = $ui.as_weak();
-        let logic_ref = $logic_arc.clone();
+        let ui_handle:slint::Weak<AppWindow> = $ui.as_weak();
+        let logic_ref: Arc<Mutex<AppLogic>> = $logic_arc.clone();
         move || {
             let logic_c = logic_ref.clone();
             let $ui_clone = ui_handle.unwrap();
@@ -74,7 +74,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             logic_c.lock().unwrap().edit();
         }
     });
-
     ui.on_delete(async_context!{ui, ui_c, logic, locked_logic, {
         if locked_logic.delete().await {
             ui_c.set_photo_path(locked_logic.get_img().await);
