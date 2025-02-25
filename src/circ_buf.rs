@@ -60,7 +60,7 @@ impl ImageElement {
 
     pub async fn load(&mut self, elem:PathBuf){
         self.file_name = elem.file_name().unwrap().to_str().unwrap().to_string();
-        println!("LOAD -> {}", self.file_name.clone());
+        // println!("LOAD -> {}", self.file_name.clone());
         // reading EXIF to get orient (<10ms)
         let file = fs::File::open(elem.clone()).unwrap();
         let mut bufreader = std::io::BufReader::new(&file);
@@ -105,7 +105,7 @@ impl ImageElement {
         unsafe {
             std::ptr::copy_nonoverlapping(decoded.as_ptr(), img_data.as_mut_ptr(), decoded.len());
         }        
-        println!("-> finished {}", self.file_name.clone());
+        // println!("-> finished {}", self.file_name.clone());
 
     }
 }
@@ -162,15 +162,29 @@ impl CircularBuffer {
         }
     }
 
-    fn get_buffer_idx(&self, num:usize)-> usize{
-        self.indices[num % self.true_size]
+    fn incr_idx(&mut self) {
+        self.current_idx = (self.current_idx+1)%self.true_size
+    }
+    fn decr_idx(&mut self) {
+        self.current_idx = (self.current_idx+self.true_size-1)%self.true_size
+    }
+    fn current_buffer_idx(&self) -> usize {
+        self.indices[self.current_idx]
+    }
+    fn front_buffer_idx(&self) -> usize {
+        self.indices[(self.current_idx+self.front_file)%self.true_size]
+    }
+    fn back_buffer_idx(&self) -> usize {
+        self.indices[(self.current_idx+self.true_size-self.back_file)%self.true_size]
+
     }
 
-    pub fn next_img(&mut self) -> bool {
+
+    pub async fn next_img(&mut self) -> bool {
         if self.counter == self.pic_list.len() -1 {
             return false;
         }
-        self.current_idx =(self.current_idx+1)%self.true_size;
+        self.incr_idx();
         self.counter += 1;
 
         let front_buf_full = self.front_file > MIN_ELEM_NUM;
@@ -179,17 +193,16 @@ impl CircularBuffer {
             self.front_file -= 1;
             self.back_file +=1;
         } else {
-            self.load_elem_front();
+            self.load_elem_front().await;
         }
         return true;
     }
 
-    pub fn prev_img(&mut self) -> bool {
+    pub async fn prev_img(&mut self) -> bool {
         if self.counter == 0 {
             return false;
         }
-
-        self.current_idx = (self.current_idx+self.true_size-1)%self.true_size;
+        self.decr_idx();
         self.counter -= 1;
         let back_buf_full = self.back_file > MIN_ELEM_NUM;
         let no_more_elems = self.counter < self.back_file;
@@ -197,119 +210,98 @@ impl CircularBuffer {
             self.back_file -= 1;
             self.front_file +=1;
         } else {
-            self.load_elem_back();
+            self.load_elem_back().await;
         }
         true
     }
 
-    fn load_elem_back(&mut self) {
+    async fn load_elem_back(&mut self) {
         let elem = self.pic_list[self.counter-self.back_file].clone();
-        let buf_pos = self.get_buffer_idx(self.current_idx + self.true_size - self.back_file); // avoiding negative
-        self.load(elem, buf_pos);
+        self.load(elem, self.back_buffer_idx()).await;
     }
 
-    fn load_elem_front(&mut self){
+    async fn load_elem_front(&mut self){
         let elem = self.pic_list[self.counter+self.front_file].clone();
-        let buf_pos = self.get_buffer_idx(self.current_idx+self.front_file);
-        self.load(elem, buf_pos);
+        self.load(elem, self.front_buffer_idx()).await;
     }
-    fn load(&mut self, elem:PathBuf, buf_pos:usize){
+    async fn load(&mut self, elem:PathBuf, buf_pos:usize){
+        // self.buffer[buf_pos].lock().await.load(elem).await;
+        //TODO improve multithread (crash)
         let a = Arc::clone(&self.buffer[buf_pos]);  // Wrap in Arc<Mutex> for thread safety
         spawn(async move {
             // Process each socket concurrently.
             let mut a_lock = a.lock().await; // Lock the Mutex to get access to the data
-            a_lock.load(elem).await
+            a_lock.load(elem).await;
         });
     }
 
-    // fn load_elem(&mut self, elem:PathBuf, buf_pos:usize) {
-
-    //     self.buffer[buf_pos].file_name = elem.file_name().unwrap().to_str().unwrap().to_string();
-    //     // self.buffer[buf_pos].raw_img = Image::load_from_path(elem.as_path()).expect("image read failed");
-    //     // 4.2 s
-    //     // let file = fs::read(elem).unwrap();
-    //     let image = image::ImageReader::open(elem).unwrap().decode().unwrap();
-    //     // let rgb_buf = image::load_from_memory(&file.as_bytes()).unwrap().into_rgb8(); 
-    //     let shared_buf: SharedPixelBuffer<Rgb8Pixel> = SharedPixelBuffer::clone_from_slice(image.as_rgb8().unwrap(), image.width(), image.height()); 
-    //     let a = Instant::now();
-    //     self.buffer[buf_pos].raw_img = slint::Image::from_rgb8(shared_buf); 
-    //     println!("{:?}", Instant::now() - a);
-    // }
-
-    pub fn delete(&mut self) -> bool {
+    pub async fn delete(&mut self) -> bool {
         self.pic_list.remove(self.counter);
-        let buf_num = self.get_buffer_idx(self.current_idx);
         if self.pic_list.len() == 0 {
             println!("No more photos, everything in the folder was deleted");
             return false;
         }
+
+        let buf_idx = self.current_buffer_idx();
         if self.pic_list.len() < BUFFER_SIZE {
-            self.indices.retain(|value| *value != buf_num);
+            // nothing to fill buffer with -> removing current buf idx from indices
+            self.indices.retain(|value| *value != buf_idx);
             self.true_size -=1;
             if self.front_file == 0 {
                 self.counter -= 1;
                 self.back_file -=1;
-                self.current_idx -=1;
+                self.decr_idx();
                 return true;
             }
             self.front_file -=1;
             return true;
         }
         if self.front_file == 0 {
-            for i in 0..self.back_file {
-                let buf_num1 = self.get_buffer_idx(self.current_idx+self.true_size-i);
-                let buf_num2 = self.get_buffer_idx(self.current_idx+self.true_size-i-1);
-                self.buffer[buf_num1] = self.buffer[buf_num2].clone();
-                // *self.pic_buffer[buf_num1].lock().unwrap() = self.pic_buffer[buf_num2].lock().unwrap().clone();
-            }
+            //          |          |
+            // 1, 2, 3, 4 -> 1, 2, 3, 0
+            self.decr_idx(); 
             self.counter -= 1;
-            self.load_elem_back();
+            self.load_elem_back().await;
             return true;
         }
-        for i in 0..self.front_file {
-            let buf_num1 = self.get_buffer_idx(self.current_idx+i);
-            let buf_num2 = self.get_buffer_idx(self.current_idx+i+1);
-            self.buffer[buf_num1] = self.buffer[buf_num2].clone();
-        }
 
-        if self.counter+MIN_ELEM_NUM >= self.pic_list.len() {
+        //       |                |
+        // 1, 2, 3, 4, 5 -> 1, 2, 4, 5, 6
+        for i in 0..self.front_file {
+            self.indices[(self.current_idx+i)%self.true_size] = self.indices[(self.current_idx+i+1)%self.true_size];
+        }
+        self.indices[(self.current_idx+self.front_file)%self.true_size] = buf_idx;
+
+        let all_front_loaded = self.counter+MIN_ELEM_NUM >= self.pic_list.len();
+        if all_front_loaded {
             self.front_file -= 1;
             self.back_file +=1;
-            self.load_elem_back();
+            self.load_elem_back().await;
         }
         else {
-            self.load_elem_front();
+        // need to fill from the front
+            self.load_elem_front().await;
         }
         true
     }
 
 
     pub async fn get_elem(&self) -> (Image, String, usize, usize) {
-        // if false {
-        //     let mut before: Vec<String> = Vec::new();
-        //     let mut after: Vec<String> = Vec::new();
-        //     for i in 0..self.back_file {
-        //         let buf_num = self.get_buffer_idx(self.current_idx + self.true_size+  i - self.back_file);
-        //         before.push(self.buffer[buf_num].file_name.clone())
-        //     }
-        //     for i in 0..self.front_file {
-        //         let buf_num = self.get_buffer_idx(self.current_idx + i+1);
-        //         after.push(self.buffer[buf_num].file_name.clone())
-        //     }
-        //     println!("{:?}, {} {:?} (real: {} | buf_num: {})", before, self.buffer[self.get_buffer_idx(self.current_idx)].file_name, after, self.counter, self.get_buffer_idx(self.current_idx));
-        //     // println!("{} real: {}", self.buffer[self.current_idx].file_name, self.counter);
-        // }
-        // self.fut_buffer[self.get_buffer_idx(self.buffer_num)].as_mut().await;
-        let elem = self.buffer[self.get_buffer_idx(self.current_idx)].lock().await;
-
+        if false {
+            let mut before: Vec<String> = Vec::new();
+            let mut after: Vec<String> = Vec::new();
+            for i in 0..self.back_file {
+                let buf_num = self.indices[(self.current_idx + self.true_size+  i - self.back_file)%self.true_size];
+                before.push(self.buffer[buf_num].lock().await.file_name.clone())
+            }
+            for i in 0..self.front_file {
+                let buf_num = self.indices[(self.current_idx + i + 1)%self.true_size];
+                after.push(self.buffer[buf_num].lock().await.file_name.clone())
+            }
+            println!("{:?}, {} {:?} (real: {} | buf_num: {})", before, self.buffer[self.current_buffer_idx()].lock().await.file_name, after, self.counter, self.current_buffer_idx());
+            println!("{:?}", self.indices)
+        }
+        let elem = self.buffer[self.current_buffer_idx()].lock().await;
         (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
     }
-
-    // pub async fn get_elem_infos(&self)-> (String, usize, usize){
-        
-    //     let name = self.buffer[self.get_buffer_idx(self.current_idx)].lock().await.file_name.clone();
-    //     (name, self.counter+1, self.pic_list.len())
-    // }
-
-
 }
