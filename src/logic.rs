@@ -50,12 +50,12 @@ impl AppLogic {
     }
 
 
-    pub fn next_img(&mut self) -> bool {
-        self.buffer.next_img()
+    pub async fn next_img(&mut self) -> bool {
+        self.buffer.next_img().await
     }
 
-    pub fn prev_img(&mut self) -> bool {
-        self.buffer.prev_img()
+    pub async fn prev_img(&mut self) -> bool {
+        self.buffer.prev_img().await
     }
 
     pub fn edit(&self) {
@@ -70,7 +70,7 @@ impl AppLogic {
         }
     }
 
-    pub fn delete(&mut self) -> bool{
+    pub async fn delete(&mut self) -> bool{
         let _ = fs::create_dir_all(self.delete_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.delete_folder.clone());
         fs::rename(file1, &dest1).unwrap();
@@ -80,7 +80,7 @@ impl AppLogic {
         else {
             println!("Moved to bin successfully")
         }
-        self.buffer.delete()
+        self.buffer.delete().await
     }
 
     pub async fn get_img(&mut self) -> Image {
@@ -89,8 +89,6 @@ impl AppLogic {
         self.current_num = current_num;
         self.total_num = total_num;
         im
-
-        
     }
 
     pub fn get_img_infos(&self)-> (String, usize, usize){
