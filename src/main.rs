@@ -1,12 +1,15 @@
 use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
 use pgt::logic::AppLogic;
 
 slint::include_modules!();
 
+const MIN_DELAY: Duration = Duration::from_millis(100);
 
 /// Syntactic sugar for async in slint callback
 /// 
@@ -17,47 +20,62 @@ slint::include_modules!();
 /// 4) name of the locked logic name to be used for logic calls inside async 
 /// 5) all the code to be placed in async block (isolated by brackets)
 macro_rules! async_context {
-    ($ui:ident, $ui_clone:ident, $logic_arc:ident, $logic_locked:ident, $code:block) => {{
+    ($last_date:ident, $ui:ident, $ui_clone:ident, $logic_arc:ident, $logic_locked:ident, $code:block) => {{
         let ui_handle:slint::Weak<AppWindow> = $ui.as_weak();
         let logic_ref: Arc<Mutex<AppLogic>> = $logic_arc.clone();
         move || {
+            if Instant::now()- $last_date < MIN_DELAY {
+                return 
+            }
+            $last_date = Instant::now();
             let logic_c = logic_ref.clone();
             let $ui_clone = ui_handle.unwrap();
-            slint::spawn_local(async move { 
-                let mut $logic_locked = logic_c.lock().unwrap();
+            slint::spawn_local(async_compat::Compat::new(async move { 
+                #[allow(unused_mut)]
+                let mut $logic_locked = logic_c.lock().await;
                 $code 
-            }).unwrap();
+            })).unwrap();
         }
     }}
 }
 
 
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+// #[tokio::main]
+fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
     // TODO PARAM
     // let folder_path = PathBuf::from_str("/home/guilhem/Pictures/TEST").unwrap();
     let folder_path = PathBuf::from_str("/home/guilhem/Documents/SAVE/Photos/2024_20 - Palawan").unwrap();
-    let logic = Arc::new(Mutex::new(AppLogic::new(folder_path))); // Wrap in Rc<RefCell<>>
-    // TODO patch first photo
-    ui.set_photo_path(logic.lock().unwrap().get_img().await);
-    let (photo_name, photo_num, total_num) = logic.lock().unwrap().get_img_infos();
+    let logic = Arc::new(Mutex::new(AppLogic::new(folder_path))); 
+    ui.set_photo_path(logic.blocking_lock().get_first_img());
+    let (photo_name, photo_num, total_num) = logic.blocking_lock().get_img_infos();
     ui.set_total_num(total_num as i32);
     ui.set_photo_name(photo_name.into());
     ui.set_photo_num(photo_num as i32);
+    let mut last_cmd = Instant::now();
 
-    ui.on_next(async_context!{ui, ui_c, logic, locked_logic, {
+    
+    let logic_c = logic.clone();
+    slint::spawn_local(async_compat::Compat::new(async move {
+        let mut locked_logic = logic_c.lock().await;
+        locked_logic.init();
+    })).unwrap();
+
+   
+    ui.on_next(async_context!{last_cmd, ui, ui_c, logic, locked_logic, {
         if locked_logic.next_img().await{
             ui_c.set_photo_path(locked_logic.get_img().await);
             let (photo_name, photo_num , _total_num) = locked_logic.get_img_infos();
             ui_c.set_photo_num(photo_num as i32);
             ui_c.set_photo_name(photo_name.into());
+            //TODO Check if faster to do rotation ? 
+            // ui_c.set_photo_rotation(90);
         }
     }});
 
-    ui.on_prev(async_context!{ui, ui_c, logic, locked_logic, {
+    ui.on_prev(async_context!{last_cmd, ui, ui_c, logic, locked_logic, {
         if locked_logic.prev_img().await {
             ui_c.set_photo_path(locked_logic.get_img().await);
             let (photo_name, photo_num , _total_num) = locked_logic.get_img_infos();
@@ -67,14 +85,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }});
 
 
+    ui.on_edit(async_context!{last_cmd, ui, _ui_c, logic, locked_logic, {
+        locked_logic.edit();
+    }}); 
     ui.on_edit({
         let logic_ref = logic.clone();
         move || {
-            let logic_c = logic_ref.clone(); // Clone the Rc
-            logic_c.lock().unwrap().edit();
+            // let logic_c = logic_ref.clone(); // Clone the Rc
+            logic_ref.blocking_lock().edit();
         }
     });
-    ui.on_delete(async_context!{ui, ui_c, logic, locked_logic, {
+    ui.on_delete(async_context!{last_cmd, ui, ui_c, logic, locked_logic, {
         if locked_logic.delete().await {
             ui_c.set_photo_path(locked_logic.get_img().await);
             let (photo_name, photo_num , total_num) = locked_logic.get_img_infos();
