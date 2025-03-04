@@ -1,5 +1,5 @@
 /// total number of images loaded in buffer
-const BUFFER_SIZE :usize = 6;
+const BUFFER_SIZE :usize = 8;
 
 /// Minimum number of elements to carry on either side of the buffer
 const MIN_ELEM_NUM:usize = (BUFFER_SIZE-2)/2;
@@ -29,7 +29,6 @@ struct ImageElement{
     file_name : String,
     in_portrait : bool,
 }
-unsafe impl Send for ImageElement {}
 impl Default for ImageElement {
     fn default() -> Self {
         Self{
@@ -58,7 +57,7 @@ impl ImageElement {
         }
     }
 
-    pub async fn load(&mut self, elem:PathBuf){
+    pub fn load(&mut self, elem:PathBuf){
         self.file_name = elem.file_name().unwrap().to_str().unwrap().to_string();
         // println!("LOAD -> {}", self.file_name.clone());
         // reading EXIF to get orient (<10ms)
@@ -105,7 +104,6 @@ impl ImageElement {
         unsafe {
             std::ptr::copy_nonoverlapping(decoded.as_ptr(), img_data.as_mut_ptr(), decoded.len());
         }        
-        // println!("-> finished {}", self.file_name.clone());
 
     }
 }
@@ -136,7 +134,9 @@ impl CircularBuffer {
         let indices: Vec<usize> = (0..true_size).collect();
         let a = Instant::now();
         let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::default())));
-        println!("Space allocated ({:?})", Instant::now()-a);
+        buffer[0].blocking_lock().load(pic_list[0].clone());
+
+        println!("First img load ({:?})", Instant::now()-a);
         Self{
             counter: 0,
             pic_list,
@@ -150,16 +150,19 @@ impl CircularBuffer {
     }
 
     pub fn init(&mut self) {
-        for i in 0..self.true_size {
+        for i in 1..self.true_size {
+            // self.buffer[i].blocking_lock().load(self.pic_list[i].clone());
             // let mut a = ImageElement::default();
             let elem = self.pic_list[i].clone();
             let a = Arc::clone(&self.buffer[i]);  // Wrap in Arc<Mutex> for thread safety
             spawn(async move {
                 // Process each socket concurrently.
                 let mut a_lock = a.lock().await; // Lock the Mutex to get access to the data
-                a_lock.load(elem).await
+                a_lock.load(elem)
             });
         }
+            
+        // }
     }
 
     fn incr_idx(&mut self) {
@@ -226,12 +229,12 @@ impl CircularBuffer {
     }
     async fn load(&mut self, elem:PathBuf, buf_pos:usize){
         // self.buffer[buf_pos].lock().await.load(elem).await;
-        //TODO improve multithread (crash)
         let a = Arc::clone(&self.buffer[buf_pos]);  // Wrap in Arc<Mutex> for thread safety
         spawn(async move {
             // Process each socket concurrently.
+
             let mut a_lock = a.lock().await; // Lock the Mutex to get access to the data
-            a_lock.load(elem).await;
+            a_lock.load(elem);
         });
     }
 
@@ -302,6 +305,11 @@ impl CircularBuffer {
             println!("{:?}", self.indices)
         }
         let elem = self.buffer[self.current_buffer_idx()].lock().await;
+        (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
+    }
+
+    pub fn get_first_elem(&self) -> (Image, String, usize, usize) {
+        let elem = self.buffer[0].blocking_lock();
         (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
     }
 }
