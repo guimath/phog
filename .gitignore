@@ -96,3 +96,5 @@ tests/rustdoc-gui/src/**.lock
 /flake.nix
 flake.lock
 /default.nix
+
+old_examples/
