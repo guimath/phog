@@ -32,8 +32,7 @@ impl AppLogic {
         if pic_list.len() == 0 {
             panic!("Folder was empty")
         }
-        let mut buffer = CircularBuffer::new(pic_list);
-        buffer.init();
+        let buffer = CircularBuffer::new(pic_list);
         let mut edit_folder = folder_path.clone();
         edit_folder.push("edit");
         let mut delete_folder = folder_path.clone();
@@ -59,6 +58,8 @@ impl AppLogic {
     }
 
     pub fn edit(&self) {
+        // TODO EDIT detect already selected 
+
         let _ = fs::create_dir_all(self.edit_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.edit_folder.clone());
         fs::copy(file1, &dest1).unwrap();
@@ -82,6 +83,9 @@ impl AppLogic {
         }
         self.buffer.delete().await
     }
+    pub fn init(&mut self) {
+        self.buffer.init();
+    }
 
     pub async fn get_img(&mut self) -> Image {
         let (im, name, current_num, total_num) = self.buffer.get_elem().await;
@@ -95,6 +99,13 @@ impl AppLogic {
         (self.current_name.clone(), self.current_num, self.total_num)
     }
 
+    pub fn get_first_img(&mut self) -> Image {
+        let (im, name, current_num, total_num) = self.buffer.get_first_elem();
+        self.current_name = name;
+        self.current_num = current_num;
+        self.total_num = total_num;
+        im
+    }
     fn get_current_move_path(&self, folder_move: PathBuf) -> (PathBuf,PathBuf,PathBuf,PathBuf){
         let mut file1 = self.current_folder.clone();
         file1.push(self.current_name.clone());
