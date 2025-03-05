@@ -55,12 +55,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.set_photo_name(first.name.into());
     ui.set_photo_path(first.image);
     let mut last_cmd = Instant::now();
-
     
     let logic_c = logic.clone();
     slint::spawn_local(async_compat::Compat::new(async move {
         let mut logic = logic_c.lock().await;
-        logic.init();
+        logic.init().await;
     })).unwrap();
 
    

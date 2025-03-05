@@ -79,8 +79,8 @@ impl AppLogic {
         }
         self.buffer.delete().await
     }
-    pub fn init(&mut self) {
-        self.buffer.init();
+    pub async fn init(&mut self) {
+        self.buffer.init().await;
     }
 
     pub async fn get_img(&mut self) -> ImageStat {
