@@ -4,26 +4,31 @@ export component AppWindow inherits Window {
     in property <int> photo_num: 0;
     in property <int> total_num: 0;
     in property <string> photo_name: "N/A";
+    in property <int> photo_rotation: 0;
     in property <image> photo_path;
-    callback prev();
-    callback next();
-    callback edit();
-    callback delete();
+    callback prev(bool);
+    callback next(bool);
+    callback edit(bool);
+    callback delete(bool);
     callback close();
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
         key-pressed(event) => {
             if (event.text == Key.LeftArrow) {
-                root.prev();
+                root.prev(event.repeat);
             }
             else if (event.text == Key.RightArrow) {
-                root.next();
+                root.next(event.repeat);
             }
             else if (event.text == "d") {
-                root.delete();
+                if !event.repeat{
+                    root.delete(false);
+                }
             }
             else if (event.text == "e") {
-                root.edit();
+                if !event.repeat{
+                    root.edit(false);
+                }
             }
             else if (event.text == Key.Escape) {
                 root.close();
@@ -35,7 +40,9 @@ export component AppWindow inherits Window {
         Image {
             source: root.photo_path;
             visible: true;
+            // rotation-angle:root.photo_rotation*1deg ;  // doesn't rescale so meh
         }
+
         Text {
             text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
             font-size: 25pt;

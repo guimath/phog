@@ -9,7 +9,7 @@ use pgt::logic::{AppLogic, ImageStat};
 
 slint::include_modules!();
 
-const MIN_DELAY: Duration = Duration::from_millis(100);
+const MIN_DELAY: Duration = Duration::from_millis(600);
 
 /// Syntactic sugar for async in slint callback
 /// 
@@ -23,11 +23,13 @@ macro_rules! async_context {
     ($last_date:ident, $ui:ident, $logic:ident, $code:block) => {{
         let ui_handle:slint::Weak<AppWindow> = $ui.as_weak();
         let logic_ref: Arc<Mutex<AppLogic>> = $logic.clone();
-        move || {
-            if Instant::now()- $last_date < MIN_DELAY {
-                return 
+        move |repeat:bool| {
+            if repeat {
+                if Instant::now()- $last_date < MIN_DELAY {
+                    return 
+                }
+                $last_date = Instant::now();
             }
-            $last_date = Instant::now();
             let logic_c = logic_ref.clone();
             #[allow(unused)]
             let $ui = ui_handle.unwrap();
