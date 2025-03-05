@@ -1,16 +1,14 @@
 
 use std::path::PathBuf;
 use crate::circ_buf::CircularBuffer;
+pub use crate::circ_buf::ImageStat;
 use std::fs;
-use slint::Image;
 
 pub struct AppLogic {
     buffer: CircularBuffer,
     edit_folder: PathBuf,
     delete_folder:PathBuf,
     current_folder:PathBuf,
-    current_num:usize,
-    total_num:usize,
     current_name:String,
 }
 
@@ -42,8 +40,6 @@ impl AppLogic {
             edit_folder,
             delete_folder,
             current_folder: folder_path,
-            current_num: 0, 
-            total_num: 0,
             current_name: String::new()
         }
     }
@@ -87,25 +83,18 @@ impl AppLogic {
         self.buffer.init();
     }
 
-    pub async fn get_img(&mut self) -> Image {
-        let (im, name, current_num, total_num) = self.buffer.get_elem().await;
-        self.current_name = name;
-        self.current_num = current_num;
-        self.total_num = total_num;
-        im
+    pub async fn get_img(&mut self) -> ImageStat {
+        let img = self.buffer.get_elem().await;
+        self.current_name = img.name.clone();
+        img
     }
 
-    pub fn get_img_infos(&self)-> (String, usize, usize){
-        (self.current_name.clone(), self.current_num, self.total_num)
+    pub fn get_first_img(&mut self) -> ImageStat {
+        let img = self.buffer.get_first_elem();
+        self.current_name = img.name.clone();
+        img
     }
 
-    pub fn get_first_img(&mut self) -> Image {
-        let (im, name, current_num, total_num) = self.buffer.get_first_elem();
-        self.current_name = name;
-        self.current_num = current_num;
-        self.total_num = total_num;
-        im
-    }
     fn get_current_move_path(&self, folder_move: PathBuf) -> (PathBuf,PathBuf,PathBuf,PathBuf){
         let mut file1 = self.current_folder.clone();
         file1.push(self.current_name.clone());

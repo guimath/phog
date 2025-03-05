@@ -107,7 +107,12 @@ impl ImageElement {
 
     }
 }
-
+pub struct ImageStat {
+    pub image: Image, 
+    pub name: String,
+    pub number: usize,
+    pub out_of: usize,
+}
 
 pub struct CircularBuffer {
     counter: usize,
@@ -161,8 +166,6 @@ impl CircularBuffer {
                 a_lock.load(elem)
             });
         }
-            
-        // }
     }
 
     fn incr_idx(&mut self) {
@@ -289,7 +292,7 @@ impl CircularBuffer {
     }
 
 
-    pub async fn get_elem(&self) -> (Image, String, usize, usize) {
+    pub async fn get_elem(&self) -> ImageStat {
         if false {
             let mut before: Vec<String> = Vec::new();
             let mut after: Vec<String> = Vec::new();
@@ -305,11 +308,22 @@ impl CircularBuffer {
             println!("{:?}", self.indices)
         }
         let elem = self.buffer[self.current_buffer_idx()].lock().await;
-        (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
+        ImageStat{
+            image:elem.read(),
+            name:elem.file_name.clone(),
+            number:self.counter+1,
+            out_of:self.pic_list.len(),
+        }
+        // (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
     }
 
-    pub fn get_first_elem(&self) -> (Image, String, usize, usize) {
+    pub fn get_first_elem(&self) -> ImageStat {
         let elem = self.buffer[0].blocking_lock();
-        (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
+        ImageStat{
+            image:elem.read(),
+            name:elem.file_name.clone(),
+            number:0,
+            out_of:self.pic_list.len(),
+        }
     }
 }
