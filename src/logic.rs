@@ -12,6 +12,13 @@ pub struct AppLogic {
     current_name:String,
 }
 
+pub enum FileMoveStatus {
+    Successfull,
+    NoRAW,
+    AlreadyDone,
+    Failed,
+}
+
 impl AppLogic {
     
     pub fn new(folder_path:PathBuf) -> Self {
@@ -53,31 +60,36 @@ impl AppLogic {
         self.buffer.prev_img().await
     }
 
-    pub fn edit(&self) {
-        // TODO EDIT detect already selected 
-
+    pub fn edit(&self) -> FileMoveStatus {
         let _ = fs::create_dir_all(self.edit_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.edit_folder.clone());
-        fs::copy(file1, &dest1).unwrap();
+        if fs::exists(dest1.clone()).unwrap(){
+            return FileMoveStatus::AlreadyDone;
+        }
+        if fs::copy(file1, &dest1).is_err() {
+            return FileMoveStatus::Failed;
+        }
         if fs::copy(file2, &dest2).is_err() {
-            println!("No RAW file, only jpg was copied to edit")
+            return FileMoveStatus::NoRAW;
         }
-        else {
-            println!("Copied to edit successfully")
-        }
+        FileMoveStatus::Successfull
     }
 
-    pub async fn delete(&mut self) -> bool{
+    pub async fn delete(&mut self) -> (FileMoveStatus, bool){
         let _ = fs::create_dir_all(self.delete_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.delete_folder.clone());
-        fs::rename(file1, &dest1).unwrap();
-        if fs::rename(file2, &dest2).is_err() {
-            println!("No RAW file, only jpg was moved to bin")
+        if !fs::exists(file1.clone()).unwrap(){
+            return (FileMoveStatus::AlreadyDone, true);
         }
-        else {
-            println!("Moved to bin successfully")
+        if fs::rename(file1, &dest1).is_err() {
+            return (FileMoveStatus::Failed, true);
         }
-        self.buffer.delete().await
+        let status = if fs::rename(file2, &dest2).is_err() {
+            FileMoveStatus::NoRAW
+        } else {
+            FileMoveStatus::Successfull
+        };
+        (status, self.buffer.delete().await)
     }
     pub async fn init(&mut self) {
         self.buffer.init().await;
