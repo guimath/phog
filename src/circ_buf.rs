@@ -10,7 +10,7 @@ use std::{cmp::min, path::PathBuf};
 use std::fs;
 use std::time::Instant;
 use tokio::spawn;
-use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
+use slint::{Image, Rgb8Pixel, SharedPixelBuffer, SharedVector};
 use tokio::sync::Mutex;
 use turbojpeg::image::Rgb;
 use exif::Tag;
@@ -21,7 +21,8 @@ use turbojpeg::{Transform, TransformOp};
 
 const BASE_WIDTH:u32 = 6000;
 const BASE_HEIGHT:u32 = 4000;
-
+// TODO See if static alloc can be done for sharedPixel buffer
+/// Image element with logic to load and read data as fast as possible
 #[derive(Debug, Clone)]
 struct ImageElement{
     raw_img : SharedPixelBuffer<Rgb8Pixel>,
@@ -39,12 +40,30 @@ impl Default for ImageElement {
         }
     }
 }
+
 impl ImageElement {
     #[allow(unused)]
     fn preloaded() -> Self{
+        const SIZE:usize = (BASE_WIDTH*BASE_HEIGHT) as usize * 3;
+        
+        // cannot statically allocate because size will be >> than stack size
+        // can be run in thread with changed stack size but that's a lot of hassle 
+
+        let mut v1:Vec<u8> = Vec::with_capacity(SIZE);
+        let mut v2:Vec<u8> = Vec::with_capacity(SIZE);
+        unsafe {
+            v1.set_len(SIZE); 
+            v2.set_len(SIZE); 
+        }
+        let b1:SharedPixelBuffer<Rgb8Pixel> = SharedPixelBuffer::clone_from_slice(&v1, BASE_WIDTH, BASE_HEIGHT);
+        let b2:SharedPixelBuffer<Rgb8Pixel> = SharedPixelBuffer::clone_from_slice(&v2, BASE_HEIGHT,BASE_WIDTH);
+
         Self{
-            raw_img: SharedPixelBuffer::new(BASE_WIDTH,BASE_HEIGHT),
-            raw_img_portrait: SharedPixelBuffer::new(BASE_HEIGHT,BASE_WIDTH),
+
+            raw_img: b1,
+            raw_img_portrait: b2,
+            // raw_img: SharedPixelBuffer::new(BASE_WIDTH, BASE_HEIGHT),
+            // raw_img_portrait: SharedPixelBuffer::new(BASE_HEIGHT, BASE_WIDTH),
             file_name: String::default(),
             in_portrait: false,
         }
@@ -98,6 +117,7 @@ impl ImageElement {
 
         if image.width() != decoded.width() || image.height() != decoded.height() { 
             // only recreating if not same size
+
             *image = SharedPixelBuffer::new(decoded.width(), decoded.height());
         }
         let img_data=  image.make_mut_bytes();
@@ -107,6 +127,7 @@ impl ImageElement {
 
     }
 }
+
 pub struct ImageStat {
     pub image: Image, 
     pub name: String,
@@ -114,6 +135,9 @@ pub struct ImageStat {
     pub out_of: usize,
 }
 
+/// A circular buffer implementation that aims to center a current element but keep in memory 
+/// a few elements before and after
+/// You can move through the elements in both directions
 pub struct CircularBuffer {
     counter: usize,
     pic_list: Vec<PathBuf>,
@@ -138,7 +162,7 @@ impl CircularBuffer {
         let true_size= min(BUFFER_SIZE, pic_list.len());
         let indices: Vec<usize> = (0..true_size).collect();
         let a = Instant::now();
-        let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::default())));
+        let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::preloaded())));
         buffer[0].blocking_lock().load(pic_list[0].clone());
 
         println!("First img load ({:?})", Instant::now()-a);
@@ -154,6 +178,7 @@ impl CircularBuffer {
         }
     }
 
+    /// Spawns loads on all buffer in parallel
     pub fn init(&mut self) {
         for i in 1..self.true_size {
             // self.buffer[i].blocking_lock().load(self.pic_list[i].clone());
@@ -168,12 +193,15 @@ impl CircularBuffer {
         }
     }
 
+    /// helper fn to increase by one current_idx
     fn incr_idx(&mut self) {
         self.current_idx = (self.current_idx+1)%self.true_size
     }
+    /// helper fn to decrease by one current_idx
     fn decr_idx(&mut self) {
         self.current_idx = (self.current_idx+self.true_size-1)%self.true_size
     }
+
     fn current_buffer_idx(&self) -> usize {
         self.indices[self.current_idx]
     }
@@ -186,6 +214,7 @@ impl CircularBuffer {
     }
 
 
+    /// Switches current element to next one. Also launches a load if needed
     pub async fn next_img(&mut self) -> bool {
         if self.counter == self.pic_list.len() -1 {
             return false;
@@ -204,6 +233,7 @@ impl CircularBuffer {
         return true;
     }
 
+    /// Switches current element to previous one. Also launches a load if needed
     pub async fn prev_img(&mut self) -> bool {
         if self.counter == 0 {
             return false;
@@ -241,6 +271,7 @@ impl CircularBuffer {
         });
     }
 
+    /// deletes current element and launches load on new element if possible
     pub async fn delete(&mut self) -> bool {
         self.pic_list.remove(self.counter);
         if self.pic_list.len() == 0 {
@@ -292,6 +323,7 @@ impl CircularBuffer {
     }
 
 
+    /// reading element and returning stats
     pub async fn get_elem(&self) -> ImageStat {
         if false {
             let mut before: Vec<String> = Vec::new();
@@ -314,9 +346,9 @@ impl CircularBuffer {
             number:self.counter+1,
             out_of:self.pic_list.len(),
         }
-        // (elem.read(), elem.file_name.clone(), self.counter+1, self.pic_list.len())
     }
 
+    /// non async function to get the first imageStat at initialization.
     pub fn get_first_elem(&self) -> ImageStat {
         let elem = self.buffer[0].blocking_lock();
         ImageStat{
