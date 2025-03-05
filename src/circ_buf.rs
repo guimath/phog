@@ -19,7 +19,6 @@ use exif::Tag;
 use turbojpeg::{Transform, TransformOp};
 
 
-// TODO See if static alloc can be done for sharedPixel buffer
 /// Image element with logic to load and read data as fast as possible
 #[derive(Debug, Clone)]
 struct ImageElement{
