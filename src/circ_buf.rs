@@ -10,7 +10,7 @@ use std::{cmp::min, path::PathBuf};
 use std::fs;
 use std::time::Instant;
 use tokio::spawn;
-use slint::{Image, Rgb8Pixel, SharedPixelBuffer, SharedVector};
+use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
 use tokio::sync::Mutex;
 use turbojpeg::image::Rgb;
 use exif::Tag;
@@ -19,66 +19,33 @@ use exif::Tag;
 use turbojpeg::{Transform, TransformOp};
 
 
-const BASE_WIDTH:u32 = 6000;
-const BASE_HEIGHT:u32 = 4000;
 // TODO See if static alloc can be done for sharedPixel buffer
 /// Image element with logic to load and read data as fast as possible
 #[derive(Debug, Clone)]
 struct ImageElement{
     raw_img : SharedPixelBuffer<Rgb8Pixel>,
-    raw_img_portrait : SharedPixelBuffer<Rgb8Pixel>,
     file_name : String,
-    in_portrait : bool,
 }
 impl Default for ImageElement {
     fn default() -> Self {
+        // const BASE_WIDTH:u32 = 6000;
+        // const BASE_HEIGHT:u32 = 4000;
+        // cannot statically allocate correct size because size will be >> than stack size
+        // can be run in thread with changed stack size but that's a lot of hassle 
         Self{
             raw_img: SharedPixelBuffer::new(1,1),
-            raw_img_portrait: SharedPixelBuffer::new(1,1),
             file_name: String::default(),
-            in_portrait: false,
         }
     }
 }
 
 impl ImageElement {
-    #[allow(unused)]
-    fn preloaded() -> Self{
-        const SIZE:usize = (BASE_WIDTH*BASE_HEIGHT) as usize * 3;
-        
-        // cannot statically allocate because size will be >> than stack size
-        // can be run in thread with changed stack size but that's a lot of hassle 
-
-        let mut v1:Vec<u8> = Vec::with_capacity(SIZE);
-        let mut v2:Vec<u8> = Vec::with_capacity(SIZE);
-        unsafe {
-            v1.set_len(SIZE); 
-            v2.set_len(SIZE); 
-        }
-        let b1:SharedPixelBuffer<Rgb8Pixel> = SharedPixelBuffer::clone_from_slice(&v1, BASE_WIDTH, BASE_HEIGHT);
-        let b2:SharedPixelBuffer<Rgb8Pixel> = SharedPixelBuffer::clone_from_slice(&v2, BASE_HEIGHT,BASE_WIDTH);
-
-        Self{
-
-            raw_img: b1,
-            raw_img_portrait: b2,
-            // raw_img: SharedPixelBuffer::new(BASE_WIDTH, BASE_HEIGHT),
-            // raw_img_portrait: SharedPixelBuffer::new(BASE_HEIGHT, BASE_WIDTH),
-            file_name: String::default(),
-            in_portrait: false,
-        }
-    }
     pub fn read(&self) -> Image{
-        if self.in_portrait {
-            slint::Image::from_rgb8(self.raw_img_portrait.clone())
-        } else {
-            slint::Image::from_rgb8(self.raw_img.clone())
-        }
+        slint::Image::from_rgb8(self.raw_img.clone())
     }
 
     pub fn load(&mut self, elem:PathBuf){
         self.file_name = elem.file_name().unwrap().to_str().unwrap().to_string();
-        // println!("LOAD -> {}", self.file_name.clone());
         // reading EXIF to get orient (<10ms)
         let file = fs::File::open(elem.clone()).unwrap();
         let mut buffer_reader = std::io::BufReader::new(&file);
@@ -105,26 +72,23 @@ impl ImageElement {
         } else {
             turbojpeg::decompress_image::<Rgb<u8>>(&data).unwrap()
         };
-        
-        // SharedPixelBuffer creation can take a while on large files (1s)
-        self.in_portrait = decoded.width()< decoded.height();
 
-        let image = if self.in_portrait {
-            &mut self.raw_img_portrait
-        } else {
-            &mut self.raw_img
-        };
-
-        if image.width() != decoded.width() || image.height() != decoded.height() { 
-            // only recreating if not same size
-
-            *image = SharedPixelBuffer::new(decoded.width(), decoded.height());
+        if self.raw_img.width() == decoded.height() && self.raw_img.height() == decoded.width() {
+            // hack : same size so buffer stays the same but inverts width and height
+            self.raw_img.revert(); // TODO drop an issue to add this functionality
         }
-        let img_data=  image.make_mut_bytes();
+        else if self.raw_img.width() != decoded.width() || self.raw_img.height() != decoded.height() { 
+            // SharedPixelBuffer creation can take a while on large files (600ms)
+            // so only recreating if not same size
+            self.raw_img = SharedPixelBuffer::clone_from_slice(&decoded, decoded.width(), decoded.height());
+            return;
+        }
+
+        // Actual copying rather fast (10ms)
+        let img_data=  self.raw_img.make_mut_bytes();
         unsafe {
             std::ptr::copy_nonoverlapping(decoded.as_ptr(), img_data.as_mut_ptr(), decoded.len());
         }        
-
     }
 }
 
@@ -139,7 +103,9 @@ pub struct ImageStat {
 /// a few elements before and after
 /// You can move through the elements in both directions
 pub struct CircularBuffer {
+    /// current item counter in global elem list (pic_list)
     counter: usize,
+    /// list of all path to rotate between 
     pic_list: Vec<PathBuf>,
     /// Actual buffered elements
     buffer: [Arc<Mutex<ImageElement>>; BUFFER_SIZE],
@@ -162,7 +128,7 @@ impl CircularBuffer {
         let true_size= min(BUFFER_SIZE, pic_list.len());
         let indices: Vec<usize> = (0..true_size).collect();
         let a = Instant::now();
-        let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::preloaded())));
+        let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::default())));
         buffer[0].blocking_lock().load(pic_list[0].clone());
 
         println!("First img load ({:?})", Instant::now()-a);
@@ -178,21 +144,6 @@ impl CircularBuffer {
         }
     }
 
-    /// Spawns loads on all buffer in parallel
-    pub fn init(&mut self) {
-        for i in 1..self.true_size {
-            // self.buffer[i].blocking_lock().load(self.pic_list[i].clone());
-            // let mut a = ImageElement::default();
-            let elem = self.pic_list[i].clone();
-            let a = Arc::clone(&self.buffer[i]);  // Wrap in Arc<Mutex> for thread safety
-            spawn(async move {
-                // Process each socket concurrently.
-                let mut a_lock = a.lock().await; // Lock the Mutex to get access to the data
-                a_lock.load(elem)
-            });
-        }
-    }
-
     /// helper fn to increase by one current_idx
     fn incr_idx(&mut self) {
         self.current_idx = (self.current_idx+1)%self.true_size
@@ -201,7 +152,6 @@ impl CircularBuffer {
     fn decr_idx(&mut self) {
         self.current_idx = (self.current_idx+self.true_size-1)%self.true_size
     }
-
     fn current_buffer_idx(&self) -> usize {
         self.indices[self.current_idx]
     }
@@ -210,9 +160,14 @@ impl CircularBuffer {
     }
     fn back_buffer_idx(&self) -> usize {
         self.indices[(self.current_idx+self.true_size-self.back_file)%self.true_size]
-
     }
 
+    /// Spawns loads on all buffer in parallel
+    pub async fn init(&mut self) {
+        for i in 1..self.true_size {
+            self.load(self.pic_list[i].clone(), i).await;
+        }
+    }
 
     /// Switches current element to next one. Also launches a load if needed
     pub async fn next_img(&mut self) -> bool {
@@ -255,18 +210,14 @@ impl CircularBuffer {
         let elem = self.pic_list[self.counter-self.back_file].clone();
         self.load(elem, self.back_buffer_idx()).await;
     }
-
     async fn load_elem_front(&mut self){
         let elem = self.pic_list[self.counter+self.front_file].clone();
         self.load(elem, self.front_buffer_idx()).await;
     }
     async fn load(&mut self, elem:PathBuf, buf_pos:usize){
-        // self.buffer[buf_pos].lock().await.load(elem).await;
-        let a = Arc::clone(&self.buffer[buf_pos]);  // Wrap in Arc<Mutex> for thread safety
+        let a = Arc::clone(&self.buffer[buf_pos]);
         spawn(async move {
-            // Process each socket concurrently.
-
-            let mut a_lock = a.lock().await; // Lock the Mutex to get access to the data
+            let mut a_lock = a.lock().await;
             a_lock.load(elem);
         });
     }
@@ -322,7 +273,6 @@ impl CircularBuffer {
         true
     }
 
-
     /// reading element and returning stats
     pub async fn get_elem(&self) -> ImageStat {
         if false {
@@ -354,7 +304,7 @@ impl CircularBuffer {
         ImageStat{
             image:elem.read(),
             name:elem.file_name.clone(),
-            number:0,
+            number:self.counter+1,
             out_of:self.pic_list.len(),
         }
     }
