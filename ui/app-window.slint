@@ -6,6 +6,16 @@ export component AppWindow inherits Window {
     in property <string> photo_name: "N/A";
     in property <int> photo_rotation: 0;
     in property <image> photo_path;
+    in-out property <bool> show_message: false; 
+    in property <string> message: "N/A"; 
+    in property <float> message_sec_up: 1.2; 
+    timer:= Timer {
+        interval: root.message_sec_up*1s; 
+        running: root.show_message; 
+        triggered() => {
+            root.show_message = false;
+        }
+    }
     callback prev(bool);
     callback next(bool);
     callback edit(bool);
@@ -76,4 +86,24 @@ export component AppWindow inherits Window {
         //     }
         // }
     }
+
+    // A pop-up container
+    HorizontalLayout {
+        padding-top: 100px;
+        alignment: center;
+        Rectangle {
+            width: 400pt;
+            height: 60pt;
+            background: #0603358e;
+            border-radius: 20px;
+            visible: root.show_message; 
+
+            Text {
+                text: root.message;
+                color: white;
+                font-size: 25pt;
+            }
+        }
+    }
+
 }

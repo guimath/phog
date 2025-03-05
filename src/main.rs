@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-use pgt::logic::{AppLogic, ImageStat};
+use pgt::logic::{AppLogic, FileMoveStatus, ImageStat};
 
 slint::include_modules!();
 
@@ -86,13 +86,28 @@ fn main() -> Result<(), Box<dyn Error>> {
             update_image!(ui, logic);
         }
     }});
-
     ui.on_edit(async_context! {last_cmd, ui, logic, {
-        logic.edit();
+        match logic.edit(){
+            FileMoveStatus::Successfull => ui.set_message("Copied to edit successfully".into()),
+            FileMoveStatus::NoRAW => ui.set_message("Copied JPG to edit, no Raw found ".into()),
+            FileMoveStatus::Failed => ui.set_message("Copy unsuccessful".into()),
+            FileMoveStatus::AlreadyDone => ui.set_message("Already copied".into()),
+        }
+        ui.set_show_message(true);
+        ui.set_message_sec_up(1.3);
     }});
 
     ui.on_delete(async_context! {last_cmd, ui, logic, {
-        if logic.delete().await {
+        let (status, to_update) = logic.delete().await;
+        match status{
+            FileMoveStatus::Successfull => ui.set_message("Moved to bin successfully".into()),
+            FileMoveStatus::NoRAW => ui.set_message("Moved JPG to edit, no Raw found ".into()),
+            FileMoveStatus::Failed => ui.set_message("Move to bin failed".into()),
+            FileMoveStatus::AlreadyDone => ui.set_message("Already deleted".into()),
+        }
+        ui.set_show_message(true);
+        ui.set_message_sec_up(1.2);
+        if to_update {
             update_image!(ui, logic);
         }
         else {
