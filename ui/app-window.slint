@@ -1,6 +1,23 @@
 import { Button, VerticalBox, HorizontalBox} from "std-widgets.slint";
 
 export component AppWindow inherits Window {
+    // MenuBar { // Menubar not yet fully stable (causes rest of window weird layout)
+    //     Menu {
+    //         title: @tr("Names");
+    //         MenuItem {
+    //             title: @tr("Change edit folder");
+    //             activated => { prep_edit_input(); }
+    //         }
+    //         MenuItem {
+    //             title: @tr("Change bin folder");
+    //             activated => { prep_bin_input(); }
+    //         }
+    //     }
+    // }
+    callback prep_edit_input();
+    callback set_edit_input();
+    callback prep_bin_input();
+    callback set_bin_input();
     in property <int> photo_num: 0;
     in property <int> total_num: 0;
     in property <string> photo_name: "N/A";
@@ -8,7 +25,15 @@ export component AppWindow inherits Window {
     in property <image> photo_path;
     in-out property <bool> show_message: false; 
     in property <string> message: "N/A"; 
+    in-out property <bool> show_text_input: false; 
+    in-out property <string> text_input: "N/A"; 
     in property <float> message_sec_up: 1.2; 
+    property <bool> input_for_edit:false;
+    public function update_text_input() {
+        text_input.text = root.text_input; // need cause other binding is removed after edit
+        text_input.select-all();
+        text_input.clear-selection();// Hack to put cursor at the end
+    } 
     timer:= Timer {
         interval: root.message_sec_up*1s; 
         running: root.show_message; 
@@ -18,8 +43,8 @@ export component AppWindow inherits Window {
     }
     callback prev(bool);
     callback next(bool);
-    callback edit(bool);
-    callback delete(bool);
+    callback edit();
+    callback delete();
     callback close();
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
@@ -31,28 +56,44 @@ export component AppWindow inherits Window {
                 root.next(event.repeat);
             }
             else if (event.text == "d") {
-                if !event.repeat{
-                    root.delete(false);
+                if (event.modifiers.alt) { // left control doesn't work on my machine
+                    root.input_for_edit = false;
+                    root.show_text_input = true;
+                    text_input.focus();
+                    root.prep_bin_input();
+                    text_input.text = root.text_input;
+                }
+                else if !event.repeat{
+                    root.delete();
                 }
             }
             else if (event.text == "e") {
-                if !event.repeat{
-                    root.edit(false);
+                if (event.modifiers.alt) {
+                    root.input_for_edit = true;
+                    root.show_text_input = true;
+                    text_input.focus();
+                    root.prep_edit_input();
+                    text_input.text = root.text_input;
+                }
+                else if !event.repeat{
+                    root.edit();
                 }
             }
-            else if (event.text == Key.Escape) {
+            else if (event.text == Key.Escape) && !event.repeat{
                 root.close();
             }
             accept
         }
     }
+
+    
     VerticalBox {
+        height: 100%;
         Image {
             source: root.photo_path;
             visible: true;
             // rotation-angle:root.photo_rotation*1deg ;  // doesn't rescale so meh
         }
-
         Text {
             text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
             font-size: 25pt;
@@ -105,5 +146,54 @@ export component AppWindow inherits Window {
             }
         }
     }
+    Rectangle {
+        // visualize focus 
+        // TODO once focus lost callback is added make disappear
+        visible: root.show_text_input;
+        background: #0000005b;
+    HorizontalLayout {
+        alignment: center;
+            VerticalLayout {
+            alignment: center;
+            Rectangle {
+                
+                width: 400pt;
+                height: 60pt;
+                border-radius: 20px;
+                visible: root.show_text_input; 
+                background: #000000bf;
+                VerticalLayout {
+                    alignment: center;
+                    text_input:=TextInput {
+                        horizontal-alignment: center;
+                        color: white;
+                        font-size: 25pt;
+                        text: root.text_input;
+
+                        accepted => {
+                            root.show_text_input= false;
+                            root.focus();
+                            root.text_input = self.text;
+                            if root.input_for_edit {
+                                root.set_edit_input();
+                            }
+                            else {
+                                root.set_bin_input();
+                            }
+                        }
+                        
+                        key-pressed(event) => {
+                            if (event.text == Key.Escape) {
+                                root.show_text_input = false;
+                                root.focus();
+                            }
+                            reject
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 }

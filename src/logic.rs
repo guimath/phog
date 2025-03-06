@@ -21,7 +21,7 @@ pub enum FileMoveStatus {
 
 impl AppLogic {
     
-    pub fn new(folder_path:PathBuf) -> Self {
+    pub fn new(folder_path:PathBuf, edit_folder_name:String, delete_folder_name:String) -> Self {
         let files = fs::read_dir(folder_path.clone()).expect("Folder scan failed");
         let mut pic_list: Vec<PathBuf> = Vec::new();
         
@@ -39,9 +39,9 @@ impl AppLogic {
         }
         let buffer = CircularBuffer::new(pic_list);
         let mut edit_folder = folder_path.clone();
-        edit_folder.push("edit");
+        edit_folder.push(edit_folder_name);
         let mut delete_folder = folder_path.clone();
-        delete_folder.push("bin");
+        delete_folder.push(delete_folder_name);
         Self{
             buffer, 
             edit_folder,
@@ -51,6 +51,18 @@ impl AppLogic {
         }
     }
 
+    pub fn set_edit_folder(&mut self, name:String) {
+        self.edit_folder.set_file_name(name);
+    }
+    pub fn get_edit_folder(&mut self) -> String {
+        self.edit_folder.file_name().unwrap().to_str().unwrap().into()
+    }
+    pub fn set_delete_folder(&mut self, name:String) {
+        self.delete_folder.set_file_name(name);
+    }
+    pub fn get_delete_folder(&mut self) -> String {
+        self.delete_folder.file_name().unwrap().to_str().unwrap().into()
+    }
 
     pub async fn next_img(&mut self) -> bool {
         self.buffer.next_img().await

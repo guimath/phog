@@ -21,7 +21,7 @@ const MIN_DELAY: Duration = Duration::from_millis(600);
 /// 5) all the code to be placed in async block (isolated by brackets)
 macro_rules! async_context {
     ($last_date:ident, $ui:ident, $logic:ident, $code:block) => {{
-        let ui_handle: slint::Weak<AppWindow> = $ui.as_weak();
+        let ui_handle = $ui.as_weak();
         let logic_ref: Arc<Mutex<AppLogic>> = $logic.clone();
         move |repeat: bool| {
             if repeat {
@@ -41,16 +41,37 @@ macro_rules! async_context {
             .unwrap();
         }
     }};
+    ($ui:ident, $logic:ident, $code:block) => {{ // same but not repeat param
+        let ui_handle = $ui.as_weak();
+        let logic_ref: Arc<Mutex<AppLogic>> = $logic.clone();
+        move || {
+            let logic_c = logic_ref.clone();
+            #[allow(unused)]
+            let $ui = ui_handle.unwrap();
+            slint::spawn_local(async_compat::Compat::new(async move {
+                #[allow(unused_mut)]
+                let mut $logic = logic_c.lock().await;
+                $code
+            }))
+            .unwrap();
+        }
+    }};
 }
 
 macro_rules! update_image {
     ($ui:ident, $logic:ident) => {{
         let img: ImageStat = $logic.get_img().await;
-        $ui.set_photo_path(img.image);
-        $ui.set_photo_num(img.number as i32);
-        $ui.set_total_num(img.out_of as i32);
-        $ui.set_photo_name(img.name.into());
+        update_image_only!($ui, img);
     }};
+}
+
+macro_rules! update_image_only {
+    ($ui:ident, $img:ident) => {{
+        $ui.set_photo_path($img.image);
+        $ui.set_photo_num($img.number as i32);
+        $ui.set_total_num($img.out_of as i32);
+        $ui.set_photo_name($img.name.into());
+    }}
 }
 
 // no #[tokio::main] because it crashes after a few Mutex locks (compatibility issue with slint)
@@ -60,12 +81,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // TODO PARAM
     // let folder_path = PathBuf::from_str("/home/guilhem/Pictures/TEST").unwrap();
     let folder_path = PathBuf::from_str("/home/guilhem/Documents/SAVE/Photos/2024_20 - Palawan").unwrap();
-    let logic = Arc::new(Mutex::new(AppLogic::new(folder_path)));
+    let logic = Arc::new(Mutex::new(AppLogic::new(folder_path, "edit".into(), "bin".into())));
     let first: ImageStat = logic.blocking_lock().get_first_img();
-    ui.set_total_num(first.out_of as i32);
-    ui.set_photo_num(first.number as i32);
-    ui.set_photo_name(first.name.into());
-    ui.set_photo_path(first.image);
+    update_image_only!(ui, first);
     let mut last_cmd = Instant::now();
 
     let logic_c = logic.clone();
@@ -86,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             update_image!(ui, logic);
         }
     }});
-    ui.on_edit(async_context! {last_cmd, ui, logic, {
+    ui.on_edit(async_context! {ui, logic, {
         match logic.edit(){
             FileMoveStatus::Successfull => ui.set_message("Copied to edit successfully".into()),
             FileMoveStatus::NoRAW => ui.set_message("Copied JPG to edit, no Raw found ".into()),
@@ -97,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ui.set_message_sec_up(1.3);
     }});
 
-    ui.on_delete(async_context! {last_cmd, ui, logic, {
+    ui.on_delete(async_context! {ui, logic, {
         let (status, to_update) = logic.delete().await;
         match status{
             FileMoveStatus::Successfull => ui.set_message("Moved to bin successfully".into()),
@@ -113,6 +131,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         else {
             slint::quit_event_loop().unwrap();
         }
+    }});
+
+    ui.on_prep_bin_input(async_context! {ui, logic, {
+        ui.set_text_input(logic.get_delete_folder().into());
+        ui.invoke_update_text_input();
+    }});
+    ui.on_prep_edit_input(async_context! {ui, logic, {
+        ui.set_text_input(logic.get_edit_folder().into());
+        ui.invoke_update_text_input();
+    }});
+    ui.on_set_bin_input(async_context! {ui, logic, {
+        logic.set_delete_folder(ui.get_text_input().into());
+    }});
+    ui.on_set_edit_input(async_context! {ui, logic, {
+        logic.set_edit_folder(ui.get_text_input().into());
     }});
 
     ui.on_close(|| {
