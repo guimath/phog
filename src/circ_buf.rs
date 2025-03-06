@@ -40,7 +40,7 @@ impl Default for ImageElement {
 
 impl ImageElement {
     pub fn read(&self) -> Image{
-        slint::Image::from_rgb8(self.raw_img.clone())
+        Image::from_rgb8(self.raw_img.clone())
     }
 
     pub fn load(&mut self, elem:PathBuf){
@@ -75,6 +75,10 @@ impl ImageElement {
         if self.raw_img.width() == decoded.height() && self.raw_img.height() == decoded.width() {
             // hack : same size so buffer stays the same but inverts width and height
             self.raw_img.revert(); // TODO drop an issue to add this functionality
+            // /// swaps width and height without touching at the data
+            // pub fn revert(&mut self) {
+            //     std::mem::swap(&mut self.width, &mut self.height);
+            // }
         }
         else if self.raw_img.width() != decoded.width() || self.raw_img.height() != decoded.height() { 
             // SharedPixelBuffer creation can take a while on large files (600ms)
@@ -130,7 +134,7 @@ impl CircularBuffer {
         let buffer = [(); BUFFER_SIZE].map(|_| Arc::new(Mutex::new(ImageElement::default())));
         buffer[0].blocking_lock().load(pic_list[0].clone());
 
-        println!("First img load ({:?})", Instant::now()-a);
+        println!("First img loaded ({:?})", Instant::now()-a);
         Self{
             counter: 0,
             pic_list,
