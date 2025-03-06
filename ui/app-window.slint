@@ -1,199 +1,224 @@
-import { Button, VerticalBox, HorizontalBox} from "std-widgets.slint";
+import { Button, VerticalBox, HorizontalBox, TextEdit} from "std-widgets.slint";
 
-export component AppWindow inherits Window {
-    // MenuBar { // Menubar not yet fully stable (causes rest of window weird layout)
-    //     Menu {
-    //         title: @tr("Names");
-    //         MenuItem {
-    //             title: @tr("Change edit folder");
-    //             activated => { prep_edit_input(); }
-    //         }
-    //         MenuItem {
-    //             title: @tr("Change bin folder");
-    //             activated => { prep_bin_input(); }
-    //         }
-    //     }
-    // }
-    callback prep_edit_input();
-    callback set_edit_input();
-    callback prep_bin_input();
-    callback set_bin_input();
-    in property <int> photo_num: 0;
-    in property <int> total_num: 0;
-    in property <string> photo_name: "N/A";
-    in property <int> photo_rotation: 0;
-    in property <image> photo_path;
-    in-out property <bool> show_message: false; 
-    in property <string> message: "N/A"; 
-    in-out property <bool> show_text_input: false; 
-    in-out property <string> text_input: "N/A"; 
-    in property <float> message_sec_up: 1.2; 
-    property <bool> input_for_edit:false;
-    public function update_text_input() {
-        text_input.text = root.text_input; // need cause other binding is removed after edit
-        text_input.select-all();
-        text_input.clear-selection();// Hack to put cursor at the end
-    } 
-    timer:= Timer {
-        interval: root.message_sec_up*1s; 
-        running: root.show_message; 
-        triggered() => {
-            root.show_message = false;
-        }
-    }
-    callback prev(bool);
-    callback next(bool);
-    callback edit();
-    callback delete();
-    callback close();
-    forward-focus: my-key-handler;
-    my-key-handler := FocusScope {
-        key-pressed(event) => {
-            if (event.text == Key.LeftArrow) {
-                root.prev(event.repeat);
-            }
-            else if (event.text == Key.RightArrow) {
-                root.next(event.repeat);
-            }
-            else if (event.text == "d") {
-                if (event.modifiers.alt) { // left control doesn't work on my machine
-                    root.input_for_edit = false;
-                    root.show_text_input = true;
-                    text_input.focus();
-                    root.prep_bin_input();
-                    text_input.text = root.text_input;
-                }
-                else if !event.repeat{
-                    root.delete();
-                }
-            }
-            else if (event.text == "e") {
-                if (event.modifiers.alt) {
-                    root.input_for_edit = true;
-                    root.show_text_input = true;
-                    text_input.focus();
-                    root.prep_edit_input();
-                    text_input.text = root.text_input;
-                }
-                else if !event.repeat{
-                    root.edit();
-                }
-            }
-            else if (event.text == Key.Escape) && !event.repeat{
-                root.close();
-            }
-            accept
-        }
-    }
-
-    
-    VerticalBox {
-        height: 100%;
-        Image {
-            source: root.photo_path;
-            visible: true;
-            // rotation-angle:root.photo_rotation*1deg ;  // doesn't rescale so meh
-        }
-        Text {
-            text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
-            font-size: 25pt;
-            height: 25pt;
-        }
-
-        // HorizontalBox {
-        //     Button {
-        //         text: "Delete";
-        //         clicked => {
-        //             root.delete();
-        //         }
-        //     }
-        //     Button {
-        //         text: "To edit";
-        //         clicked => {
-        //             root.edit();
-        //         }
-        //     }
-        //     Button {
-        //         text: "Prev";
-        //         clicked => {
-        //             root.prev();
-        //         }
-        //     }
-        //     Button {
-        //         text: "Next";
-        //         clicked => {
-        //             root.next();
-        //         }
-        //     }
-        // }
-    }
-
-    // A pop-up container
-    HorizontalLayout {
-        padding-top: 100px;
-        alignment: center;
-        Rectangle {
-            width: 400pt;
-            height: 60pt;
-            background: #0603358e;
-            border-radius: 20px;
-            visible: root.show_message; 
-
-            Text {
-                text: root.message;
-                color: white;
-                font-size: 25pt;
-            }
-        }
-    }
-    Rectangle {
-        // visualize focus 
-        // TODO once focus lost callback is added make disappear
-        visible: root.show_text_input;
-        background: #0000005b;
-    HorizontalLayout {
-        alignment: center;
-            VerticalLayout {
-            alignment: center;
-            Rectangle {
-                
-                width: 400pt;
-                height: 60pt;
-                border-radius: 20px;
-                visible: root.show_text_input; 
-                background: #000000bf;
-                VerticalLayout {
-                    alignment: center;
-                    text_input:=TextInput {
-                        horizontal-alignment: center;
-                        color: white;
-                        font-size: 25pt;
-                        text: root.text_input;
-
-                        accepted => {
-                            root.show_text_input= false;
-                            root.focus();
-                            root.text_input = self.text;
-                            if root.input_for_edit {
-                                root.set_edit_input();
-                            }
-                            else {
-                                root.set_bin_input();
-                            }
-                        }
-                        
-                        key-pressed(event) => {
-                            if (event.text == Key.Escape) {
-                                root.show_text_input = false;
-                                root.focus();
-                            }
-                            reject
-                        }
-                    }
-                }
-            }
-        }
-    }
+// ***************************************************************** //
+//                            Default Widgets
+// ***************************************************************** //
+component MainText inherits Text {
+  // font-family: 
+  font-size: 25pt;
+  // color: white;
+}
+component MainTextInput inherits TextInput {
+  // font-family: 
+  font-size: 25pt;
+  // color: white;
+  horizontal-alignment: center;
 }
 
+// MenuBar { // Menubar not yet fully stable (causes rest of window weird layout)
+//     Menu {
+//         title: @tr("Names");
+//         MenuItem {
+//             title: @tr("Change edit folder");
+//             activated => { prep_edit_input(); }
+//         }
+//         MenuItem {
+//             title: @tr("Change bin folder");
+//             activated => { prep_bin_input(); }
+//         }
+//     }
+// }
+
+
+
+export component AppWindow inherits Window {
+  // ***************************************************************** //
+  //                            PROPERTIES
+  // ***************************************************************** //
+  in property <int> photo_num: 0;
+  in property <int> total_num: 0;
+  in property <string> photo_name: "";
+  in property <image> photo_path;
+  
+  out property <string> text_input: "";
+  property <bool> show_text_input: false;
+  property <string> input_mode:"";
+
+  // Constants
+  property <color> pop_up_background_on: #060335c4;
+  property <color> pop_up_background_off: pop_up_background_on.transparentize(1);
+  property <color> pop_up_color_on: #ffffffff;
+  property <color> pop_up_color_off: pop_up_color_on.transparentize(1);
+
+  // ***************************************************************** //
+  //                            CALLBACKS
+  // ***************************************************************** //
+  callback prep_edit_input();
+  callback set_edit_input();
+  callback prep_bin_input();
+  callback set_bin_input();
+  callback prev(bool);
+  callback next(bool);
+  callback edit();
+  callback delete();
+  callback close();
+
+  // ***************************************************************** //
+  //                            UI LOGIC
+  // ***************************************************************** //
+  /// Shows the text input with the provided text as default
+  public function display_text_input(text:string) {
+    text_input.text = text;
+    root.show_text_input = true;
+    text_input.focus();
+    text_input.select-all();
+    text_input.clear-selection();// Hack to put cursor at the end
+  }
+  /// Shows a pop up message
+  public function display_message(message:string) {
+    // TODO find a way to force timer open
+    pop_up.background = root.pop_up_background_on;
+    pop_up_text.color = root.pop_up_color_on;
+    pop_up_text.text = message;
+    pop_up.y = 100px;
+    timer.running = true;
+  }
+    /// A Timer to handle the end of a pop up message
+  timer:= Timer {
+    interval: 2s;
+    running: false;
+    triggered() => {
+      self.running = false;
+      pop_up.background = root.pop_up_background_off;
+      pop_up_text.color = root.pop_up_color_off;
+      pop_up.y = 0pt;
+    }
+  }
+    
+  /// global focus for all hotkeys
+  forward-focus: my-key-handler;
+  my-key-handler := FocusScope {
+    key-pressed(event) => {
+      if event.text == Key.LeftArrow {
+        root.prev(event.repeat);
+      }
+      else if event.text == Key.RightArrow {
+        root.next(event.repeat);
+      }
+      else if event.text == "d" && event.modifiers.alt {
+        root.input_mode = "Bin folder";
+        root.prep_bin_input();
+      }
+      else if event.text == "d" && !event.repeat {
+          root.delete();
+      }
+      else if event.text == "e"  && event.modifiers.alt {
+        root.input_mode = "Edit folder";
+        root.prep_edit_input();
+      }
+      else if event.text == "e" && !event.repeat {
+        root.edit();
+      }
+      else if event.text == Key.Escape && !event.repeat {
+        root.close();
+      }
+      accept
+    }
+  }
+
+
+  // ***************************************************************** //
+  //                            WIDGETS
+  // ***************************************************************** //
+  // TODO add a hotkey description
+  // main box, always shown
+  VerticalBox {
+    height: 100%;
+    padding: 0;
+    padding-bottom: 10px;
+    Image {
+      source: root.photo_path;
+      visible: true;
+      // rotation-angle:root.photo_rotation*1deg ;  // doesn't rescale so meh
+    }
+    MainText {
+      text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
+      height: 25pt;
+    }
+  }
+
+  // pop-up 
+  pop_up := Rectangle {
+    y: 0px;
+    width: 400pt;
+    height: 60pt;
+    background: root.pop_up_background_off;
+    border-radius: 20px;
+    visible: true;
+    animate y {
+      duration: 500ms;
+      easing: ease-in-out;
+    }
+    animate background {
+      duration: 250ms;
+      easing: ease-in-out;
+    }
+    pop_up_text := MainText {
+      color: root.pop_up_color_off;
+      animate color {
+        duration: 250ms;
+        easing: ease-in-out;
+      }
+    }
+  }
+
+  Rectangle {
+    // visualize focus
+    // TODO once focus lost callback is added make disappear
+    visible: root.show_text_input;
+    background: #0000005b;
+    HorizontalLayout {
+      alignment: center;
+      VerticalLayout {
+        alignment: center;
+        Rectangle {
+          width: 400pt;
+          height: 90pt;
+          border-radius: 20px;
+          visible: root.show_text_input;
+          background: #000000bf;
+          VerticalLayout {
+            alignment: center;
+            spacing: 10pt;
+            MainText {
+              color:white.darker(0.8);
+              horizontal-alignment: center;
+              text: "\{root.input_mode}:";
+            }
+            text_input:= MainTextInput {
+              accepted => {
+                root.show_text_input = false;
+                root.focus();
+                root.text_input = self.text;
+                if root.input_mode == "Edit folder" {
+                  root.set_edit_input();
+                }
+                else if root.input_mode == "Bin folder" {
+                  root.set_bin_input();
+                }
+              }
+
+              key-pressed(event) => {
+                if (event.text == Key.Escape) {
+                  root.show_text_input = false;
+                  root.focus();
+                }
+                reject
+              }
+            } 
+          }
+        }
+      }
+    }
+  }
 }

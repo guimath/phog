@@ -14,10 +14,9 @@ const MIN_DELAY: Duration = Duration::from_millis(600);
 /// Syntactic sugar for async in slint callback
 ///
 /// ### Params
-/// 1) existing App Window variable
-/// 2) name of ui handle to be used for ui calls inside async
-/// 3) existing Mutex App Logic variable
-/// 4) name of the locked logic name to be used for logic calls inside async
+/// 1) (optional) last date to be checked against min_delay if key was repeated 
+/// 2) UI app
+/// 3) Logic variable
 /// 5) all the code to be placed in async block (isolated by brackets)
 macro_rules! async_context {
     ($last_date:ident, $ui:ident, $logic:ident, $code:block) => {{
@@ -105,26 +104,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }});
     ui.on_edit(async_context! {ui, logic, {
-        match logic.edit(){
-            FileMoveStatus::Successfull => ui.set_message("Copied to edit successfully".into()),
-            FileMoveStatus::NoRAW => ui.set_message("Copied JPG to edit, no Raw found ".into()),
-            FileMoveStatus::Failed => ui.set_message("Copy unsuccessful".into()),
-            FileMoveStatus::AlreadyDone => ui.set_message("Already copied".into()),
-        }
-        ui.set_show_message(true);
-        ui.set_message_sec_up(1.3);
+        let message = match logic.edit(){
+            FileMoveStatus::Successfull => "Copied to edit successfully",
+            FileMoveStatus::NoRAW => "Copied JPG to edit, no Raw found ",
+            FileMoveStatus::Failed => "Copy unsuccessful",
+            FileMoveStatus::AlreadyDone => "Already copied",
+        };
+        ui.invoke_display_message(message.into());
     }});
 
     ui.on_delete(async_context! {ui, logic, {
         let (status, to_update) = logic.delete().await;
-        match status{
-            FileMoveStatus::Successfull => ui.set_message("Moved to bin successfully".into()),
-            FileMoveStatus::NoRAW => ui.set_message("Moved JPG to edit, no Raw found ".into()),
-            FileMoveStatus::Failed => ui.set_message("Move to bin failed".into()),
-            FileMoveStatus::AlreadyDone => ui.set_message("Already deleted".into()),
-        }
-        ui.set_show_message(true);
-        ui.set_message_sec_up(1.2);
+        let message = match status{
+            FileMoveStatus::Successfull => "Moved to bin successfully",
+            FileMoveStatus::NoRAW => "Moved JPG to bin, no Raw found ",
+            FileMoveStatus::Failed => "Move to bin failed",
+            FileMoveStatus::AlreadyDone => "Already deleted",
+        };
+        ui.invoke_display_message(message.into());
         if to_update {
             update_image!(ui, logic);
         }
@@ -134,12 +131,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     }});
 
     ui.on_prep_bin_input(async_context! {ui, logic, {
-        ui.set_text_input(logic.get_delete_folder().into());
-        ui.invoke_update_text_input();
+        ui.invoke_display_text_input(logic.get_delete_folder().into());
     }});
     ui.on_prep_edit_input(async_context! {ui, logic, {
-        ui.set_text_input(logic.get_edit_folder().into());
-        ui.invoke_update_text_input();
+        ui.invoke_display_text_input(logic.get_edit_folder().into());
     }});
     ui.on_set_bin_input(async_context! {ui, logic, {
         logic.set_delete_folder(ui.get_text_input().into());
