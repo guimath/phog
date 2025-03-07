@@ -70,6 +70,7 @@ macro_rules! update_image_only {
         $ui.set_photo_name($img.name.into());
     }}
 }
+// TODO PARAM ?
 
 // no #[tokio::main] because it crashes after a few Mutex locks (compatibility issue with slint)
 fn main() -> Result<(), Box<dyn Error>> {
@@ -77,9 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
-    // TODO PARAM
-    // let folder_path = PathBuf::from_str("/home/guilhem/Pictures/TEST").unwrap();
-    let folder_path = PathBuf::from_str("/home/guilhem/Documents/SAVE/Photos/2024_20 - Palawan").unwrap();
+    let folder_path = std::env::current_dir()?;
     let logic = Arc::new(Mutex::new(AppLogic::new(folder_path, "edit".into(), "bin".into())));
     let first: ImageStat = logic.blocking_lock().get_first_img();
     update_image_only!(ui, first);
