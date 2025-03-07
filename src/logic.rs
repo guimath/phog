@@ -12,12 +12,7 @@ pub struct AppLogic {
     current_name:String,
 }
 
-pub enum FileMoveStatus {
-    Successfull,
-    NoRAW,
-    AlreadyDone,
-    Failed,
-}
+slint::include_modules!();
 
 impl AppLogic {
     
@@ -72,34 +67,34 @@ impl AppLogic {
         self.buffer.prev_img().await
     }
 
-    pub fn edit(&self) -> FileMoveStatus {
+    pub fn edit(&self) -> Message {
         let _ = fs::create_dir_all(self.edit_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.edit_folder.clone());
         if fs::exists(dest1.clone()).unwrap(){
-            return FileMoveStatus::AlreadyDone;
+            return Message::EditAlreadyDone;
         }
         if fs::copy(file1, &dest1).is_err() {
-            return FileMoveStatus::Failed;
+            return Message::EditFailed;
         }
         if fs::copy(file2, &dest2).is_err() {
-            return FileMoveStatus::NoRAW;
+            return Message::EditNoRAW;
         }
-        FileMoveStatus::Successfull
+        Message::EditSuccessful
     }
 
-    pub async fn delete(&mut self) -> (FileMoveStatus, bool){
+    pub async fn delete(&mut self) -> (Message, bool){
         let _ = fs::create_dir_all(self.delete_folder.clone());
         let (file1, file2, dest1, dest2) = self.get_current_move_path(self.delete_folder.clone());
         if !fs::exists(file1.clone()).unwrap(){
-            return (FileMoveStatus::AlreadyDone, true);
+            return (Message::BinAlreadyDone, true);
         }
         if fs::rename(file1, &dest1).is_err() {
-            return (FileMoveStatus::Failed, true);
+            return (Message::BinFailed, true);
         }
         let status = if fs::rename(file2, &dest2).is_err() {
-            FileMoveStatus::NoRAW
+            Message::BinNoRAW
         } else {
-            FileMoveStatus::Successfull
+            Message::BinSuccessful
         };
         (status, self.buffer.delete().await)
     }

@@ -1,5 +1,21 @@
 import { Button, VerticalBox, HorizontalBox, TextEdit} from "std-widgets.slint";
 
+
+// ***************************************************************** //
+//                            External Elements
+// ***************************************************************** //
+export enum Message{
+  EditSuccessful, 
+  EditNoRAW, 
+  EditFailed, 
+  EditAlreadyDone,
+  BinSuccessful, 
+  BinNoRAW, 
+  BinFailed, 
+  BinAlreadyDone,
+}
+enum Action{Edit, Bin}
+
 // ***************************************************************** //
 //                            Default Widgets
 // ***************************************************************** //
@@ -36,10 +52,12 @@ export component AppWindow inherits Window {
   
   out property <string> text_input: "";
   property <bool> show_text_input: false;
-  property <string> input_mode:"";
+  /// Purpose of the user text input
+  property <Action> input_mode: Bin;
 
+  
   property <bool> show_help:false;
-
+  
   // Constants
   property <color> pop_up_background_on: root.background.brighter(0.1); // theme agnostic
   property <color> pop_up_background_off: pop_up_background_on.transparentize(1);
@@ -69,11 +87,18 @@ export component AppWindow inherits Window {
     text_input.clear-selection();// Hack to put cursor at the end
   }
   /// Shows a pop up message
-  public function display_message(message:string) {
+  public function display_message(message:Message) {
     // TODO find a way to force timer open
-    pop_up.background = root.pop_up_background_on;
+    if message == Message.EditSuccessful       { pop_up_text.text = "Copied to edit successfully";}
+    else if message == Message.EditNoRAW       { pop_up_text.text = "copied JPG to edit, no Raw found ";}
+    else if message == Message.EditFailed      { pop_up_text.text = "Copy to edit failed";}
+    else if message == Message.EditAlreadyDone { pop_up_text.text = "Already copied";}
+    else if message == Message.BinSuccessful   { pop_up_text.text = "Moved to bin successfully";}
+    else if message == Message.BinNoRAW        { pop_up_text.text = "Moved JPG to bin, no Raw found ";}
+    else if message == Message.BinFailed       { pop_up_text.text = "Move to bin failed";}
+    else if message == Message.BinAlreadyDone  { pop_up_text.text = "Already deleted";}
     pop_up_text.color = example_text.color;
-    pop_up_text.text = message;
+    pop_up.background = root.pop_up_background_on;
     pop_up.y = 100px;
     timer.running = true;
   }
@@ -103,14 +128,16 @@ export component AppWindow inherits Window {
         root.next(event.repeat);
       }
       else if event.text == "d" && event.modifiers.alt {
-        root.input_mode = "Bin folder";
+        root.input_mode = Action.Bin;
+        text_input_title.text = "Bin folder:";
         root.prep_bin_input();
       }
       else if event.text == "d" && !event.repeat {
-          root.delete();
+        root.delete();
       }
       else if event.text == "e"  && event.modifiers.alt {
-        root.input_mode = "Edit folder";
+        root.input_mode = Action.Edit;
+        text_input_title.text = "Edit folder:";
         root.prep_edit_input();
       }
       else if event.text == "e" && !event.repeat {
@@ -173,12 +200,12 @@ export component AppWindow inherits Window {
             horizontal-alignment: right;
             font-size: 20pt;
             color: example_text.color.transparentize(0.4);
-            text: "h:\nArrows:\ne:\nd:\nAlt+e:\nAlt+d:";
+            text: "h:\nArrows:\ne:\nd:\nAlt+e:\nAlt+d:\nEsc:";
           }
           MainText {
             horizontal-alignment: left;
             font-size: 20pt;
-            text: "Toggle help\nPrevious/next image\nCopy to edit\nMove to bin\nChange edit folder\nChange bin folder";
+            text: "Toggle help\nPrevious/next image\nCopy to edit\nMove to bin\nChange edit folder\nChange bin folder\nQuit";
           }
         }
 
@@ -229,10 +256,10 @@ export component AppWindow inherits Window {
           VerticalLayout {
             alignment: center;
             spacing: 10pt;
-            MainText {
+            text_input_title:= MainText {
               color:white.darker(0.8);
               horizontal-alignment: center;
-              text: "\{root.input_mode}:";
+              text: "";
             }
             text_input:= TextInput {
               horizontal-alignment: center;
@@ -242,10 +269,10 @@ export component AppWindow inherits Window {
                 root.show_text_input = false;
                 root.focus();
                 root.text_input = self.text;
-                if root.input_mode == "Edit folder" {
+                if root.input_mode == Action.Edit {
                   root.set_edit_input();
                 }
-                else if root.input_mode == "Bin folder" {
+                else if root.input_mode == Action.Bin {
                   root.set_bin_input();
                 }
               }

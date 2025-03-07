@@ -5,10 +5,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-use pgt::logic::{AppLogic, FileMoveStatus, ImageStat};
-
-slint::include_modules!();
-
+use pgt::logic::{AppLogic, ImageStat, AppWindow};
+use slint::ComponentHandle;
 const MIN_DELAY: Duration = Duration::from_millis(600);
 
 /// Syntactic sugar for async in slint callback
@@ -104,24 +102,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }});
     ui.on_edit(async_context! {ui, logic, {
-        let message = match logic.edit(){
-            FileMoveStatus::Successfull => "Copied to edit successfully",
-            FileMoveStatus::NoRAW => "Copied JPG to edit, no Raw found ",
-            FileMoveStatus::Failed => "Copy unsuccessful",
-            FileMoveStatus::AlreadyDone => "Already copied",
-        };
-        ui.invoke_display_message(message.into());
+        ui.invoke_display_message(logic.edit());
     }});
 
     ui.on_delete(async_context! {ui, logic, {
         let (status, to_update) = logic.delete().await;
-        let message = match status{
-            FileMoveStatus::Successfull => "Moved to bin successfully",
-            FileMoveStatus::NoRAW => "Moved JPG to bin, no Raw found ",
-            FileMoveStatus::Failed => "Move to bin failed",
-            FileMoveStatus::AlreadyDone => "Already deleted",
-        };
-        ui.invoke_display_message(message.into());
+        ui.invoke_display_message(status);
         if to_update {
             update_image!(ui, logic);
         }
