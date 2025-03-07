@@ -89,14 +89,14 @@ export component AppWindow inherits Window {
   /// Shows a pop up message
   public function display_message(message:Message) {
     // TODO find a way to force timer open
-    if message == Message.EditSuccessful       { pop_up_text.text = "Copied to edit successfully";}
-    else if message == Message.EditNoRAW       { pop_up_text.text = "copied JPG to edit, no Raw found ";}
-    else if message == Message.EditFailed      { pop_up_text.text = "Copy to edit failed";}
-    else if message == Message.EditAlreadyDone { pop_up_text.text = "Already copied";}
-    else if message == Message.BinSuccessful   { pop_up_text.text = "Moved to bin successfully";}
-    else if message == Message.BinNoRAW        { pop_up_text.text = "Moved JPG to bin, no Raw found ";}
-    else if message == Message.BinFailed       { pop_up_text.text = "Move to bin failed";}
-    else if message == Message.BinAlreadyDone  { pop_up_text.text = "Already deleted";}
+    if message == Message.EditSuccessful       { pop_up_text.text = @tr("Copied to edit successfully");}
+    else if message == Message.EditNoRAW       { pop_up_text.text = @tr("copied JPG to edit, no Raw found ");}
+    else if message == Message.EditFailed      { pop_up_text.text = @tr("Copy to edit failed");}
+    else if message == Message.EditAlreadyDone { pop_up_text.text = @tr("Already copied");}
+    else if message == Message.BinSuccessful   { pop_up_text.text = @tr("Moved to bin successfully");}
+    else if message == Message.BinNoRAW        { pop_up_text.text = @tr("Moved JPG to bin, no Raw found ");}
+    else if message == Message.BinFailed       { pop_up_text.text = @tr("Move to bin failed");}
+    else if message == Message.BinAlreadyDone  { pop_up_text.text = @tr("Already deleted");}
     pop_up_text.color = example_text.color;
     pop_up.background = root.pop_up_background_on;
     pop_up.y = 100px;
@@ -129,7 +129,7 @@ export component AppWindow inherits Window {
       }
       else if event.text == "d" && event.modifiers.alt {
         root.input_mode = Action.Bin;
-        text_input_title.text = "Bin folder:";
+        text_input_title.text = @tr("Bin folder:");
         root.prep_bin_input();
       }
       else if event.text == "d" && !event.repeat {
@@ -137,7 +137,7 @@ export component AppWindow inherits Window {
       }
       else if event.text == "e"  && event.modifiers.alt {
         root.input_mode = Action.Edit;
-        text_input_title.text = "Edit folder:";
+        text_input_title.text = @tr("Edit folder:");
         root.prep_edit_input();
       }
       else if event.text == "e" && !event.repeat {
@@ -187,25 +187,25 @@ export component AppWindow inherits Window {
       VerticalBox {
         MainText {
           horizontal-alignment: center;
-          text: "Help & Hot Keys";
+          text: @tr("Help & Hot Keys");
         }
         MainText {
           horizontal-alignment: center;
           wrap: word-wrap;
           font-size: 20pt;
-          text: "This app is designed for photographers looking to sort photos and RAWs.\nYou can select photo for edits & delete them directly from the app with reduced loading time.";
+          text: @tr("This app is designed for photographers looking to sort photos and RAWs.\nYou can select photo for edits & delete them directly from the app with reduced loading time.");
         }
         HorizontalBox {
           MainText {
             horizontal-alignment: right;
             font-size: 20pt;
             color: example_text.color.transparentize(0.4);
-            text: "h:\nArrows:\ne:\nd:\nAlt+e:\nAlt+d:\nEsc:";
+            text: @tr("h:\nArrows:\ne:\nd:\nAlt+e:\nAlt+d:\nEsc:");
           }
           MainText {
             horizontal-alignment: left;
             font-size: 20pt;
-            text: "Toggle help\nPrevious/next image\nCopy to edit\nMove to bin\nChange edit folder\nChange bin folder\nQuit";
+            text: @tr("Toggle help\nPrevious/next image\nCopy to edit\nMove to bin\nChange edit folder\nChange bin folder\nQuit");
           }
         }
 
