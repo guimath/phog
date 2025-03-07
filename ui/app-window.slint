@@ -8,12 +8,6 @@ component MainText inherits Text {
   font-size: 25pt;
   // color: white;
 }
-component MainTextInput inherits TextInput {
-  // font-family: 
-  font-size: 25pt;
-  // color: white;
-  horizontal-alignment: center;
-}
 
 // MenuBar { // Menubar not yet fully stable (causes rest of window weird layout)
 //     Menu {
@@ -44,11 +38,11 @@ export component AppWindow inherits Window {
   property <bool> show_text_input: false;
   property <string> input_mode:"";
 
+  property <bool> show_help:false;
+
   // Constants
-  property <color> pop_up_background_on: #060335c4;
+  property <color> pop_up_background_on: root.background.brighter(0.1); // theme agnostic
   property <color> pop_up_background_off: pop_up_background_on.transparentize(1);
-  property <color> pop_up_color_on: #ffffffff;
-  property <color> pop_up_color_off: pop_up_color_on.transparentize(1);
 
   // ***************************************************************** //
   //                            CALLBACKS
@@ -78,7 +72,7 @@ export component AppWindow inherits Window {
   public function display_message(message:string) {
     // TODO find a way to force timer open
     pop_up.background = root.pop_up_background_on;
-    pop_up_text.color = root.pop_up_color_on;
+    pop_up_text.color = example_text.color;
     pop_up_text.text = message;
     pop_up.y = 100px;
     timer.running = true;
@@ -90,7 +84,7 @@ export component AppWindow inherits Window {
     triggered() => {
       self.running = false;
       pop_up.background = root.pop_up_background_off;
-      pop_up_text.color = root.pop_up_color_off;
+      pop_up_text.color = example_text.color.transparentize(1);
       pop_up.y = 0pt;
     }
   }
@@ -99,6 +93,9 @@ export component AppWindow inherits Window {
   forward-focus: my-key-handler;
   my-key-handler := FocusScope {
     key-pressed(event) => {
+      if event.text == "h" {
+        root.show_help = !root.show_help;
+      }
       if event.text == Key.LeftArrow {
         root.prev(event.repeat);
       }
@@ -130,7 +127,6 @@ export component AppWindow inherits Window {
   // ***************************************************************** //
   //                            WIDGETS
   // ***************************************************************** //
-  // TODO add a hotkey description
   // main box, always shown
   VerticalBox {
     height: 100%;
@@ -141,9 +137,52 @@ export component AppWindow inherits Window {
       visible: true;
       // rotation-angle:root.photo_rotation*1deg ;  // doesn't rescale so meh
     }
-    MainText {
+    example_text:=MainText {
       text: "\{root.photo_name} (\{root.photo_num}/\{root.total_num})";
       height: 25pt;
+    }
+  }
+
+
+  // Help 
+  HorizontalBox {
+    alignment: center;
+    height: 50%;
+    width: 60%;
+    Rectangle {
+      // height: 10%;
+      width: 100%;
+      // padding: 100pt;
+      // -left: 100pt;
+      visible: root.show_help;
+      background: root.pop_up_background_on;
+      border-radius: 20px;
+      VerticalBox {
+        MainText {
+          horizontal-alignment: center;
+          text: "Help & Hot Keys";
+        }
+        MainText {
+          horizontal-alignment: center;
+          wrap: word-wrap;
+          font-size: 20pt;
+          text: "This app is designed for photographers looking to sort photos and RAWs.\nYou can select photo for edits & delete them directly from the app with reduced loading time.";
+        }
+        HorizontalBox {
+          MainText {
+            horizontal-alignment: right;
+            font-size: 20pt;
+            color: example_text.color.transparentize(0.4);
+            text: "h:\nArrows:\ne:\nd:\nAlt+e:\nAlt+d:";
+          }
+          MainText {
+            horizontal-alignment: left;
+            font-size: 20pt;
+            text: "Toggle help\nPrevious/next image\nCopy to edit\nMove to bin\nChange edit folder\nChange bin folder";
+          }
+        }
+
+      }
     }
   }
 
@@ -164,7 +203,7 @@ export component AppWindow inherits Window {
       easing: ease-in-out;
     }
     pop_up_text := MainText {
-      color: root.pop_up_color_off;
+      color: example_text.color.transparentize(1);
       animate color {
         duration: 250ms;
         easing: ease-in-out;
@@ -195,7 +234,10 @@ export component AppWindow inherits Window {
               horizontal-alignment: center;
               text: "\{root.input_mode}:";
             }
-            text_input:= MainTextInput {
+            text_input:= TextInput {
+              horizontal-alignment: center;
+              font-size: 25pt;
+              color:white;
               accepted => {
                 root.show_text_input = false;
                 root.focus();
