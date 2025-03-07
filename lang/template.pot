@@ -1,0 +1,102 @@
+
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2025-03-07 15:41+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. TODO find a way to force timer open
+#: ui/app-window.slint:92
+msgctxt "AppWindow"
+msgid "Copied to edit successfully"
+msgstr ""
+
+#: ui/app-window.slint:93
+msgctxt "AppWindow"
+msgid "copied JPG to edit, no Raw found "
+msgstr ""
+
+#: ui/app-window.slint:94
+msgctxt "AppWindow"
+msgid "Copy to edit failed"
+msgstr ""
+
+#: ui/app-window.slint:95
+msgctxt "AppWindow"
+msgid "Already copied"
+msgstr ""
+
+#: ui/app-window.slint:96
+msgctxt "AppWindow"
+msgid "Moved to bin successfully"
+msgstr ""
+
+#: ui/app-window.slint:97
+msgctxt "AppWindow"
+msgid "Moved JPG to bin, no Raw found "
+msgstr ""
+
+#: ui/app-window.slint:98
+msgctxt "AppWindow"
+msgid "Move to bin failed"
+msgstr ""
+
+#: ui/app-window.slint:99
+msgctxt "AppWindow"
+msgid "Already deleted"
+msgstr ""
+
+#: ui/app-window.slint:132
+msgctxt "AppWindow"
+msgid "Bin folder:"
+msgstr ""
+
+#: ui/app-window.slint:140
+msgctxt "AppWindow"
+msgid "Edit folder:"
+msgstr ""
+
+#: ui/app-window.slint:190
+msgctxt "AppWindow"
+msgid "Help & Hot Keys"
+msgstr ""
+
+#: ui/app-window.slint:196
+msgctxt "AppWindow"
+msgid ""
+"This app is designed for photographers looking to sort photos and RAWs.\n"
+"You can select photo for edits & delete them directly from the app with "
+"reduced loading time."
+msgstr ""
+
+#: ui/app-window.slint:203
+msgctxt "AppWindow"
+msgid ""
+"h:\n"
+"Arrows:\n"
+"e:\n"
+"d:\n"
+"Alt+e:\n"
+"Alt+d:\n"
+"Esc:"
+msgstr ""
+
+#: ui/app-window.slint:208
+msgctxt "AppWindow"
+msgid ""
+"Toggle help\n"
+"Previous/next image\n"
+"Copy to edit\n"
+"Move to bin\n"
+"Change edit folder\n"
+"Change bin folder\n"
+"Quit"
+msgstr ""
+

@@ -73,6 +73,8 @@ macro_rules! update_image_only {
 
 // no #[tokio::main] because it crashes after a few Mutex locks (compatibility issue with slint)
 fn main() -> Result<(), Box<dyn Error>> {
+    // Attempts to find locale translation (default English)
+    slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
     // TODO PARAM
