@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-use pgt::logic::{AppLogic, ImageStat, AppWindow};
+use phog::logic::{AppLogic, ImageStat, AppWindow};
 use slint::ComponentHandle;
 const MIN_DELAY: Duration = Duration::from_millis(600);
 
