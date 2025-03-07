@@ -1,18 +1,16 @@
 use std::error::Error;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
-use phog::logic::{AppLogic, ImageStat, AppWindow};
+use phog::logic::{AppLogic, AppWindow, ImageStat};
 use slint::ComponentHandle;
 const MIN_DELAY: Duration = Duration::from_millis(600);
 
 /// Syntactic sugar for async in slint callback
 ///
 /// ### Params
-/// 1) (optional) last date to be checked against min_delay if key was repeated 
+/// 1) (optional) last date to be checked against min_delay if key was repeated
 /// 2) UI app
 /// 3) Logic variable
 /// 5) all the code to be placed in async block (isolated by brackets)
@@ -38,7 +36,8 @@ macro_rules! async_context {
             .unwrap();
         }
     }};
-    ($ui:ident, $logic:ident, $code:block) => {{ // same but not repeat param
+    ($ui:ident, $logic:ident, $code:block) => {{
+        // same but not repeat param
         let ui_handle = $ui.as_weak();
         let logic_ref: Arc<Mutex<AppLogic>> = $logic.clone();
         move || {
@@ -68,7 +67,7 @@ macro_rules! update_image_only {
         $ui.set_photo_num($img.number as i32);
         $ui.set_total_num($img.out_of as i32);
         $ui.set_photo_name($img.name.into());
-    }}
+    }};
 }
 // TODO PARAM ?
 
@@ -79,7 +78,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
     let folder_path = std::env::current_dir()?;
-    let logic = Arc::new(Mutex::new(AppLogic::new(folder_path, "edit".into(), "bin".into())));
+    let logic = Arc::new(Mutex::new(AppLogic::new(
+        folder_path,
+        "edit".into(),
+        "bin".into(),
+    )));
     let first: ImageStat = logic.blocking_lock().get_first_img();
     update_image_only!(ui, first);
     let mut last_cmd = Instant::now();
