@@ -3,6 +3,12 @@ name = "phog"
 version = "0.1.0"
 edition = "2021"
 authors = ["Guilhem <guilhem.mathieux.pro@gmail.com>"]
+license = "MIT"
+description = "A minimal photo Gallery."
+repository = "https://github.com/guimath/phog"
+readme = "README.md"
+keywords = ["photo", "graphics", "slint", "gallery"]
+
 
 [dependencies]
 clap = { version = "4.5.13", features = ["derive"] }
