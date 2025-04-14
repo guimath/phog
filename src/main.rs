@@ -2,10 +2,10 @@ use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
+use clap::Parser;
 
 use phog::logic::{AppLogic, AppWindow, ImageStat};
 use slint::ComponentHandle;
-const MIN_DELAY: Duration = Duration::from_millis(600);
 
 /// Syntactic sugar for async in slint callback
 ///
@@ -15,16 +15,16 @@ const MIN_DELAY: Duration = Duration::from_millis(600);
 /// 3) Logic variable
 /// 5) all the code to be placed in async block (isolated by brackets)
 macro_rules! async_context {
-    ($last_date:ident, $ui:ident, $logic:ident, $code:block) => {{
+    ($delay:ident, $last_date:ident, $ui:ident, $logic:ident, $code:block) => {{
         let ui_handle = $ui.as_weak();
         let logic_ref: Arc<Mutex<AppLogic>> = $logic.clone();
         move |repeat: bool| {
             if repeat {
-                if Instant::now() - $last_date < MIN_DELAY {
+                if Instant::now() - $last_date < $delay {
                     return;
                 }
-                $last_date = Instant::now();
             }
+            $last_date = Instant::now();
             let logic_c = logic_ref.clone();
             #[allow(unused)]
             let $ui = ui_handle.unwrap();
@@ -53,7 +53,7 @@ macro_rules! async_context {
         }
     }};
 }
-
+/// Gets an image and update all needed ui element for a new image
 macro_rules! update_image {
     ($ui:ident, $logic:ident) => {{
         let img: ImageStat = $logic.get_img().await;
@@ -61,6 +61,7 @@ macro_rules! update_image {
     }};
 }
 
+/// Updates all needed ui element for a new image
 macro_rules! update_image_only {
     ($ui:ident, $img:ident) => {{
         $ui.set_photo_path($img.image);
@@ -69,12 +70,23 @@ macro_rules! update_image_only {
         $ui.set_photo_name($img.name.into());
     }};
 }
-// TODO PARAM ?
 
+/// args
+#[derive(Parser)]
+struct Cli {
+    /// Delay between key presses when holding down a key
+    #[clap(short, long, value_name="MS", default_value_t = 600)]
+    delay_ms: u64,
+}
+// TODO add a start from function
+// TODO add a regex match function
+// TODO add a license
 // no #[tokio::main] because it crashes after a few Mutex locks (compatibility issue with slint)
 fn main() -> Result<(), Box<dyn Error>> {
     // Attempts to find locale translation (default English)
     slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
+    let args = Cli::parse();
+    let delay = Duration::from_millis(args.delay_ms);
     let ui = AppWindow::new()?;
     ui.window().set_maximized(true);
     let folder_path = std::env::current_dir()?;
@@ -94,13 +106,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }))
     .unwrap();
 
-    ui.on_next(async_context! {last_cmd, ui, logic, {
+    ui.on_next(async_context! {delay, last_cmd, ui, logic, {
         if logic.next_img().await{
             update_image!(ui, logic);
         }
     }});
 
-    ui.on_prev(async_context! {last_cmd, ui, logic, {
+    ui.on_prev(async_context! {delay, last_cmd, ui, logic, {
         if logic.prev_img().await {
             update_image!(ui, logic);
         }

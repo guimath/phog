@@ -2,8 +2,10 @@
 name = "phog"
 version = "0.1.0"
 edition = "2021"
+authors = ["Guilhem <guilhem.mathieux.pro@gmail.com>"]
 
 [dependencies]
+clap = { version = "4.5.13", features = ["derive"] }
 slint = {version = "1.10.0", features = ["gettext"]}
 tokio = { version = "1", features = ["full"] }
 image = "0.25"
