@@ -43,6 +43,7 @@ component MainText inherits Text {
 
 export component AppWindow inherits Window {
   title: "Phog";
+  icon: @image-url("img/logo.svg");
   // ***************************************************************** //
   //                            PROPERTIES
   // ***************************************************************** //
@@ -145,6 +146,15 @@ export component AppWindow inherits Window {
         root.edit();
       }
       else if event.text == Key.Escape && !event.repeat {
+        if root.show_text_input {
+          root.show_text_input = false;
+          root.focus();
+          return accept;
+        }
+        if root.show_help {
+          root.show_help = false;
+          return accept;
+        }
         root.close();
       }
       accept
