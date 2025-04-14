@@ -71,19 +71,11 @@ impl ImageElement {
             turbojpeg::decompress_image::<Rgb<u8>>(&data).unwrap()
         };
 
-        if self.raw_img.width() == decoded.height() && self.raw_img.height() == decoded.width() {
-            // hack : same size so buffer stays the same but inverts width and height
-            #[rustfmt::skip]
-            self.raw_img.revert(); // TODO drop an issue to add this functionality
-            // /// swaps width and height without touching at the data
-            // pub fn revert(&mut self) {
-            //     std::mem::swap(&mut self.width, &mut self.height);
-            // }
-        } else if self.raw_img.width() != decoded.width()
-            || self.raw_img.height() != decoded.height()
-        {
-            // SharedPixelBuffer creation can take a while on large files (600ms)
-            // so only recreating if not same size
+        // if self.raw_img.width() == decoded.height() && self.raw_img.height() == decoded.width() {
+        //     // Same size so buffer stays the same but inverts width and height -> awaiting slint update
+        //     self.raw_img = SharedPixelBuffer::from_shared_pixel_buffer(decoded.width(), decoded.height(), self.raw_img.clone()).unwrap();
+        // } else
+        if self.raw_img.width() != decoded.width() || self.raw_img.height() != decoded.height() {
             self.raw_img =
                 SharedPixelBuffer::clone_from_slice(&decoded, decoded.width(), decoded.height());
             return;
