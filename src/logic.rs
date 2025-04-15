@@ -23,8 +23,8 @@ impl AppLogic {
             if f_path.extension().is_none() {
                 continue;
             }
-            let ext = f_path.extension().unwrap().to_str().unwrap();
-            if ext == "JPG" {
+            let ext = f_path.extension().unwrap().to_str().unwrap().to_lowercase();
+            if ext == "jpg" || ext == "png" || ext == "jpeg"{
                 pic_list.push(f_path);
             }
         }
